@@ -11,6 +11,7 @@
 import sys, glob, os
 import argparse as ap
 import getpass
+import json
 #
 import config
 sys.path.append(config.SOURCE)
@@ -27,6 +28,8 @@ if sys.argv[1] in ["-h", "--help", "-help", "getopt", "usage"]:
                         default "False", type bool
     -m  --addmeta  :   Add metadata in MitoMatcher, such as Lab, User and Technique information.
                         default "False", type bool.
+    -u  --update  :    Updates metadata in MitoMatcher, such as Lab, User and Technique information.
+                        default "False", type bool.
     -v  --verbose  :   Make the script verbose.
                         default "False", type bool.
     ''')
@@ -37,6 +40,7 @@ if sys.argv[1] in ["-h", "--help", "-help", "getopt", "usage"]:
 p = ap.ArgumentParser()
 p.add_argument("-c", "--createdb", required=False, default=False, action='store_true', help="create architecture")
 p.add_argument("-m", "--addmeta", required=False, default=False, action='store_true', help="add metadata")
+p.add_argument("-u", "--update", required=False, default=False, action='store_true', help="updates metadata")
 p.add_argument("-v", "--verbose", required=False, default=False, action='store_true', help="verbose log")
 args = p.parse_args()
 
@@ -59,8 +63,53 @@ def add_dbmetadata(database):
        Takes in: database
        Returns: database
     '''
+    cursor = database.cursor()
+    # Add laboratories, users, technique
+    file = open(config.METADATA+"LaboratoriesUsers.json")
+    metadata = json.load(file)
+    ######################################
+    # Add Laboratories.
+    laboratories = metadata['Laboratory']
+    for labname in laboratories:
+        # gather data in variables
+        labindex = laboratories[labname]
+        # build sql command
+        insertion = (" INSERT INTO Laboratory \
+        (id_labo, name) \
+        VALUES ("+ \
+        ",".join([str(labindex), '"'+str(labname)+'"']) \
+        +");")
+        # execute sql command
+        utilitary.executesqlmetadatainsertion(insertion, cursor)
+        # commit sql change, so it actually appears in the database
+        database.commit()
+    ######################################
+    # Add Users
+    users = metadata['User']
+    for user in users:
+        # gather data in variables
+        username = user
+        info = users[user]
+        usermail = info[0]
+        userhospital = info[1]
+        # build sql command
+        insertion = (" INSERT INTO User \
+        (id_user, mail, id_labo) \
+        VALUES ("+ \
+        ",".join(['"'+str(username)+'"', '"'+str(usermail)+'"', str(laboratories[userhospital])])
+        +");")
+        # execute sql command
+        utilitary.executesqlmetadatainsertion(insertion, cursor)
+        # commit sql change, so it actually appears in the database
+        database.commit()
 
-    return database
+    # Add
+
+    ######################################
+    # Add Ontologies
+
+
+    return 0
 #
 def create_variant_tables(database):
     '''Creates variant related tables in MitoMatcherDB.
@@ -247,7 +296,7 @@ if __name__ == "__main__":
         database = utilitary.connect2databse(str(password))
         create_db(database)
     if args.addmeta :
-        print("Add metadata (Users, Techniques, Laboratories). Get ready for the ride.")
+        print("Add metadata (Users, Techniques, Laboratories, Ontologies). Get ready for the ride.")
         password = 'Mimas' #getpass.getpass()
         database = utilitary.connect2databse(str(password))
         add_dbmetadata(database)

@@ -7,6 +7,7 @@
 # Not intended to run as stand alone
 import sys
 import pymysql
+import config
 
 class bcolors:
     HEADER = '\033[95m'
@@ -36,9 +37,9 @@ def connect2databse(password):
     return database
 #
 def executesqlinstruction(instruction, cursor):
-    '''Tries to execute the SQL instruction on the database cursor.
-       Takes in instruction, cursor
-       Returns nothing, but if successful database is modified.
+    ''' Tries to execute the SQL instruction on the database cursor.
+        Takes in instruction, cursor
+        Returns nothing, but if successful database is modified.
     '''
     try:
         cursor.execute(instruction)
@@ -47,3 +48,25 @@ def executesqlinstruction(instruction, cursor):
     except:
         print(bcolors.WARNING + "Could not execute SQL instruction." + bcolors.ENDC)
         print(instruction)
+#
+def executesqlmetadatainsertion(insertion, cursor):
+    ''' Tries to execute the SQL insertion of the metadata on the database cursor.
+        Takes in the table in insertion, cursor.
+        Returns nothing, but if successful database is updated.
+    '''
+    try:
+        cursor.execute(insertion)
+        print(bcolors.OKCYAN + "Successful SQL insertion." + bcolors.ENDC)
+        print(insertion)
+    except:
+        print(bcolors.WARNING + "Could not execute SQL insertion." + bcolors.ENDC)
+        print(insertion)
+#
+def getsticlinic(df):
+    ''' Parses the xlsx STIC (Bannwarth et al. 2013) clinical data
+        Takes in empty MitoMatcherDB json style dataframe
+        Outputs it with the available info.
+    '''
+    file = config.STICCLINICxlsx
+
+    return df
