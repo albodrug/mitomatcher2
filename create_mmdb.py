@@ -12,6 +12,7 @@ import sys, glob, os
 import argparse as ap
 import getpass
 import json
+import urllib.request
 #
 import config
 sys.path.append(config.SOURCE)
@@ -96,17 +97,69 @@ def add_dbmetadata(database):
         insertion = (" INSERT INTO User \
         (id_user, mail, id_labo) \
         VALUES ("+ \
-        ",".join(['"'+str(username)+'"', '"'+str(usermail)+'"', str(laboratories[userhospital])])
+        ",".join(['"'+str(username)+'"', '"'+str(usermail)+'"', str(laboratories[userhospital])]) \
         +");")
         # execute sql command
         utilitary.executesqlmetadatainsertion(insertion, cursor)
         # commit sql change, so it actually appears in the database
         database.commit()
 
-    # Add
+    ######################################
+    # Add Techniques
+    techniques = metadata['Technique']
+    for tech in techniques:
+        # gather data in variables
+        sequencer = tech
+        info = techniques[tech]
+        library = info['library']
+        sequencer = info['sequencer']
+        mapper = info['mapper']
+        pipeline_version = info['pipeline_version']
+        caller = info['caller']
+        index = info['index']
+        # build sql command
+        insertion = (" INSERT INTO Technique \
+        (id_tech, library, sequencer, mapper, caller, pipeline_version) \
+        VALUES ("+ \
+        ",".join(['"'+str(index)+'"', '"'+str(library)+'"', '"'+str(sequencer)+'"', '"'+str(mapper)+'"', '"'+str(caller)+'"', '"'+str(pipeline_version)+'"']) \
+        +");")
+        # execute sql command
+        utilitary.executesqlmetadatainsertion(insertion,cursor)
+        # commit sql change, so it actually appears in the database
+        database.commit()
 
     ######################################
     # Add Ontologies
+    ######
+    # HPO
+    file = open(config.METADATA+"HPO.list")
+    hpoarr = file.read().split('\n') # this is an array containing HPOs appearing in MitoMatcher
+    hpourl = urllib.request.urlopen('https://phenotero.github.io/json/hp.obo.json')
+    hpojson = json.loads(hpourl.read().decode())
+    # gather data in variables
+    for element in hpojson:
+        if element['container-title'] in hpoarr:
+            id_ontologyterm = element['container-title']
+            name = element['title']
+            definition = []
+            author = element['author']
+            for d in author:
+                definition.append(d['family'])
+            type = "HPO "+element['type']
+            strdefinition = "; ".join(definition)
+            # build sql command
+            insertion = (" INSERT INTO Ontology \
+            (id_ontologyterm, name, definition, type) \
+            VALUES ("+ \
+            ",".join(['"'+str(id_ontologyterm)+'"', '"'+str(name)+'"', '"'+str(strdefinition)+'"', '"'+str(type)+'"']) \
+            +");")
+            # execute command
+            utilitary.executesqlmetadatainsertion(insertion,cursor)
+            # commit sql change, so it actually appears in the database
+            database.commit()
+
+
+
 
 
     return 0
@@ -196,7 +249,7 @@ def create_sample_tables(database):
     name VARCHAR(60) NOT NULL, \
     definition VARCHAR(650), \
     comment VARCHAR(650), \
-    type VARCHAR(10) NOT NULL \
+    type VARCHAR(20) NOT NULL \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Sample_Ontology Table, PK id_sample_ontology, FK id_ontology, FK id_sample
@@ -239,7 +292,17 @@ def create_analysis_tables(database):
     [Laboratory],
     '''
     cursor = database.cursor()
-    # Tab Table
+    # Technique Table
+    instruction = ("CREATE TABLE Technique ( \
+    id_tech INT PRIMARY KEY NOT NULL, \
+    library VARCHAR(25), \
+    sequencer VARCHAR(25), \
+    mapper VARCHAR(25), \
+    caller VARCHAR(25), \
+    pipeline_version VARCHAR(25) \
+    ) ENGINE=INNODB;")
+    utilitary.executesqlinstruction(instruction, cursor)
+    # Analysis Table
     instruction = ("CREATE TABLE Analysis ( \
     id_analysis INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
     date_analysis DATE, \
@@ -249,14 +312,13 @@ def create_analysis_tables(database):
     CONSTRAINT fk_id_tech FOREIGN KEY (id_tech) REFERENCES Technique(id_tech) ON UPDATE CASCADE \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
-    # Technique Table
-    instruction = ("CREATE TABLE Technique ( \
-    id_tech INT PRIMARY KEY NOT NULL, \
-    library VARCHAR(25), \
-    sequencer VARCHAR(25), \
-    mapper VARCHAR(25), \
-    caller VARCHAR(25), \
-    pipeline_version VARCHAR(25) \
+    # User Table
+    instruction = ("CREATE TABLE User ( \
+    id_user VARCHAR(25) PRIMARY KEY NOT NULL, \
+    id_labo INT, \
+    mail VARCHAR(100), \
+    phone INT, \
+    CONSTRAINT fk_user_labo FOREIGN KEY (id_labo) REFERENCES Laboratory(id_labo) ON UPDATE CASCADE \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Variant_Call Table
@@ -272,15 +334,6 @@ def create_analysis_tables(database):
     CONSTRAINT fk_analysis FOREIGN KEY (id_analysis) REFERENCES Analysis(id_analysis) ON UPDATE CASCADE, \
     id_variant INT, \
     CONSTRAINT fk_variant FOREIGN KEY (id_variant) REFERENCES Variant(id_variant) ON UPDATE CASCADE \
-    ) ENGINE=INNODB;")
-    utilitary.executesqlinstruction(instruction, cursor)
-    # User Table
-    instruction = ("CREATE TABLE User ( \
-    id_user VARCHAR(25) PRIMARY KEY NOT NULL, \
-    id_labo INT, \
-    mail VARCHAR(100), \
-    phone INT, \
-    CONSTRAINT fk_user_labo FOREIGN KEY (id_labo) REFERENCES Laboratory(id_labo) ON UPDATE CASCADE \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
 

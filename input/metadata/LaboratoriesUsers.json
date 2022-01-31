@@ -1,0 +1,43 @@
+{ "Laboratory" : {
+      "genbank" : 0,
+      "CHU Nice" : 1,
+	    "CHU Necker" : 2,
+	    "CHU Angers" : 3,
+	    "CHU La Pitie" : 4,
+	    "CHU Bordeaux" : 5,
+	    "CHU Grenoble" : 6,
+	    "CHU Kremlin Bicetre" : 7,
+	    "CHU Lille" : 8,
+	    "CHU Lyon" : 9,
+	    "CHU Trousseau" : 10,
+	    "CHU Reims" : 11,
+	    "CHU Caen" : 13
+  },
+  "User" : {
+      "genbank" : ["genbank" , "genbank"],
+      "sbannwarth" : ["sylvie.bannwarth@unice.fr", "CHU Nice"],
+      "gbarcia" : ["guilia.barcia@aphp.fr", "CHU Necker"],
+      "jpbonnefont" : ["jean-paul.bonnefont@nck.aphp.fr", "CHU Necker"],
+      "vprocaccio" : ["vincent.procaccio@univ-angers.fr", "CHU Angers"],
+      "brucheton" : ["benoit.rucheton@aphp.fr", "CHU La Pitie"],
+      "cjardel" : ["claude.jardel@aphp.fr", "CHU La Pitie" ],
+      "mlmartinnegrier" : ["marie-laure.martin-negrier@u-bordeaux.fr","CHU Bordeaux"],
+      "ghardy" : ["ghardy@chu-grenoble.fr", "CHU Grenoble"],
+      "pgaignard" : ["pauline.gaignard@aphp.fr", "CHU Kremlin Bicetre"],
+      "asalma" : ["abdel.salma@bct.aphp.fr", "CHU Kremlin Bicetre"],
+      "adevos" : ["aurore.devos@chu-lille.fr", "CHU Lille"],
+      "cacquaviva" : ["cecile.acquaviva-bourdain@chu-lyon.fr", "CHU Lyon"],
+      "cpagan" : ["cecile.pagan@chu-lyon.fr", "CHU Lyon"],
+      "svasseur" : ["sophie.vasseur@chu-lyon.fr", "CHU Lyon"],
+      "ljonard" : ["laurence.jonard@nck.aphp.fr", "CHU Necker"],
+      "aslebre" : ["aslebre@chu-reims.fr", "CHU Reims"],
+      "sallouche" : ["allouche-s@chu-caen.fr", "CHU Caen"]
+  },
+  "Technique" : {
+      "genbank" : {"index" : 0, "library" : "", "sequencer" : "genbank", "mapper" : "", "caller" : "", "pipeline_version" : ""},
+      "mitochip" : {"index" : 1, "library" : "", "sequencer" : "mitochip", "mapper" : "", "caller" : "", "pipeline_version" : ""},
+      "surveyor" : {"index" : 2, "library" : "", "sequencer" : "surveyor", "mapper" : "", "caller" : "", "pipeline_version" : ""},
+      "ionproton" : {"index" : 3, "library" : "2 long range PCR", "sequencer" : "Ion Proton", "mapper" : "TMAP", "caller" : "TVC", "pipeline_version" : "niourk 1.7"},
+      "ionS5" : {"index" : 4, "library" : "2 long range PCR", "sequencer" : "Ion S5 XL Systems", "mapper" : "TMAP", "caller" : "TVC", "pipeline_version" : "niourk 1.7"}
+  }
+}
