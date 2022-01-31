@@ -5,7 +5,8 @@
 
 
 # This script creates the MitoMatcherDB architecture and permits the
-# Import of some metadata
+# import of some metadata (Users, Technique, Laboratory, Ontology)
+# Ontologies are linked to files online (Phenotero): https://phenotero.github.io/data_json/
 
 #
 import sys, glob, os
@@ -132,7 +133,7 @@ def add_dbmetadata(database):
     # Add Ontologies
     ######
     # HPO
-    file = open(config.METADATA+"HPO.list")
+    file = open(config.METADATA+"mmdb_HPO.list")
     hpoarr = file.read().split('\n') # this is an array containing HPOs appearing in MitoMatcher
     hpourl = urllib.request.urlopen('https://phenotero.github.io/json/hp.obo.json')
     hpojson = json.loads(hpourl.read().decode())
@@ -141,11 +142,11 @@ def add_dbmetadata(database):
         if element['container-title'] in hpoarr:
             id_ontologyterm = element['container-title']
             name = element['title']
+            type = "HPO "+element['type']
             definition = []
             author = element['author']
             for d in author:
                 definition.append(d['family'])
-            type = "HPO "+element['type']
             strdefinition = "; ".join(definition)
             # build sql command
             insertion = (" INSERT INTO Ontology \
@@ -157,10 +158,36 @@ def add_dbmetadata(database):
             utilitary.executesqlmetadatainsertion(insertion,cursor)
             # commit sql change, so it actually appears in the database
             database.commit()
-
-
-
-
+    ########
+    # MONDO
+    mondoarr = []
+    with open(config.METADATA+"mmdb_MONDO.list", 'r') as f:
+        for line in f:
+            arr = line.strip().split() # two element array, first is ORPHA, second is MONDO
+            mondoarr.append(arr[1]) # append MONDO terms
+    mondourl = urllib.request.urlopen('https://phenotero.github.io/json/mondo.obo.json')
+    mondojson = json.loads(mondourl.read().decode())
+    # gather data in variables
+    for element in mondojson:
+        if element['container-title'] in mondoarr:
+            id_ontologyterm = element['container-title']
+            name = element['title']
+            type = "MONDO "+element['type']
+            definition = []
+            author = element['author']
+            for d in author:
+                definition.append(d['family'])
+            strdefinition = "; ".join(definition)
+            # build sql command
+            insertion = (" INSERT INTO Ontology \
+            (id_ontologyterm, name, definition, type) \
+            VALUES ("+ \
+            ",".join(['"'+str(id_ontologyterm)+'"', '"'+str(name)+'"', '"'+str(strdefinition)+'"', '"'+str(type)+'"']) \
+            +");")
+            # execute command
+            utilitary.executesqlmetadatainsertion(insertion,cursor)
+            # commit sql change, so it actually appears in the database
+            database.commit()
 
     return 0
 #
@@ -178,7 +205,8 @@ def create_variant_tables(database):
     chr VARCHAR(5), \
     pos INT, \
     ref VARCHAR(50), \
-    alt VARCHAR(50) \
+    alt VARCHAR(50), \
+    UNIQUE(chr, pos, ref, alt) \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Gene Table, id_gene PK, no FK
@@ -227,7 +255,8 @@ def create_sample_tables(database):
     # Laboratory Table
     instruction = ("CREATE TABLE Laboratory (\
     id_labo INT PRIMARY KEY NOT NULL, \
-    name VARCHAR(100) \
+    name VARCHAR(100), \
+    UNIQUE(name) \
     )ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Sample Table, id_sample PK, id_labo FK
@@ -238,6 +267,7 @@ def create_sample_tables(database):
     haplogroup VARCHAR(50), \
     id_labo INT, \
     sample_date DATE, \
+    UNIQUE(id_sample_in_lab, tissue, sample_date), \
     CONSTRAINT fk_id_labo_laboratory FOREIGN KEY (id_labo) REFERENCES Laboratory(id_labo) ON UPDATE CASCADE, \
     type VARCHAR(25) \
     ) ENGINE=INNODB;")
@@ -245,11 +275,11 @@ def create_sample_tables(database):
     # Ontology Table, PK id_ontology
     instruction = ("CREATE TABLE Ontology ( \
     id_ontology INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
-    id_ontologyterm VARCHAR(12)  NOT NULL, \
-    name VARCHAR(60) NOT NULL, \
-    definition VARCHAR(650), \
-    comment VARCHAR(650), \
-    type VARCHAR(20) NOT NULL \
+    id_ontologyterm VARCHAR(20) UNIQUE NOT NULL, \
+    name VARCHAR(100) NOT NULL, \
+    definition VARCHAR(1000), \
+    comment VARCHAR(200), \
+    type VARCHAR(30) NOT NULL \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Sample_Ontology Table, PK id_sample_ontology, FK id_ontology, FK id_sample
@@ -258,6 +288,7 @@ def create_sample_tables(database):
     id_ontology INT NOT NULL, \
     CONSTRAINT fk_id_orpha_sample_ontology FOREIGN KEY (id_ontology) REFERENCES Ontology(id_ontology) ON UPDATE CASCADE, \
     id_sample INT NOT NULL, \
+    UNIQUE(id_ontology, id_sample), \
     CONSTRAINT fk_id_sample_sample_ontology FOREIGN KEY (id_sample) REFERENCES Sample(id_sample) ON UPDATE CASCADE, \
     annot VARCHAR(50) NOT NULL \
     ) ENGINE=INNODB;")
@@ -265,7 +296,7 @@ def create_sample_tables(database):
     # Clinic Table
     instruction = ("CREATE TABLE Clinic ( \
     id_patient INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
-    id_patient_in_lab VARCHAR(125), \
+    id_patient_in_lab VARCHAR(125) UNIQUE, \
     sex VARCHAR(10), \
     age INT, \
     age_of_onset VARCHAR(50), \
@@ -278,6 +309,7 @@ def create_sample_tables(database):
     id_patient INT NOT NULL, \
     CONSTRAINT fk_id_patient_sample_clinic FOREIGN KEY (id_patient) REFERENCES Clinic(id_patient) ON UPDATE CASCADE, \
     id_sample INT NOT NULL, \
+    UNIQUE(id_patient, id_sample), \
     CONSTRAINT fk_id_sample_sample_clinic FOREIGN KEY (id_sample) REFERENCES Sample(id_sample) ON UPDATE CASCADE \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
@@ -316,7 +348,7 @@ def create_analysis_tables(database):
     instruction = ("CREATE TABLE User ( \
     id_user VARCHAR(25) PRIMARY KEY NOT NULL, \
     id_labo INT, \
-    mail VARCHAR(100), \
+    mail VARCHAR(100) UNIQUE, \
     phone INT, \
     CONSTRAINT fk_user_labo FOREIGN KEY (id_labo) REFERENCES Laboratory(id_labo) ON UPDATE CASCADE \
     ) ENGINE=INNODB;")
