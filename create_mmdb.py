@@ -30,7 +30,7 @@ if sys.argv[1] in ["-h", "--help", "-help", "getopt", "usage"]:
                         default "False", type bool
     -m  --addmeta  :   Add metadata in MitoMatcher, such as Lab, User and Technique information.
                         default "False", type bool.
-    -u  --update  :    Updates metadata in MitoMatcher, such as Lab, User and Technique information.
+    -u  --update  :    Updates metadata in MitoMatcher, such as Lab, User and Technique information [NOT IMPLEMENTED].
                         default "False", type bool.
     -v  --verbose  :   Make the script verbose.
                         default "False", type bool.
