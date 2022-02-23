@@ -13,7 +13,10 @@ import sys, glob, os
 import argparse as ap
 import getpass
 import json
+import fastobo
+import requests
 import urllib.request
+import re
 #
 import config
 sys.path.append(config.SOURCE)
@@ -66,6 +69,30 @@ def add_dbmetadata(database):
        Returns: database
     '''
     cursor = database.cursor()
+    ######################################
+    # Add Gene data
+    file = open(config.METADATA+"NC_012920.1_genes.gff3", 'r')
+    lines = file.readlines()[2:]
+    for l in lines:
+        w = l.split()
+        if w[2] == 'gene':
+            id_gene = re.sub(",.*", "", str(re.sub(".*GeneID:","",str(w[8]))))
+            name = re.sub(";.*","",str(w[8].replace("ID=gene-","")))
+            chr = 'chrM'
+            start = w[3]
+            end = w[4]
+            # insert
+            insertion = ("INSERT INTO Gene \
+            (id_gene, name, chr, start, end) \
+            VALUES (" + \
+            ",".join([id_gene, "'"+name+"'", "'"+chr+"'", start, end]) \
+            +");")
+            # execute sql command
+            utilitary.executesqlmetadatainsertion(insertion, cursor)
+            # build sql command
+            database.commit()
+
+    ######################################
     # Add laboratories, users, technique
     file = open(config.METADATA+"LaboratoriesUsers.json")
     metadata = json.load(file)
@@ -135,6 +162,8 @@ def add_dbmetadata(database):
     # HPO
     file = open(config.METADATA+"mmdb_HPO.list")
     hpoarr = file.read().split('\n') # this is an array containing HPOs appearing in MitoMatcher
+    ######################
+    # from Phenotero json
     hpourl = urllib.request.urlopen('https://phenotero.github.io/json/hp.obo.json')
     hpojson = json.loads(hpourl.read().decode())
     # gather data in variables
@@ -158,6 +187,44 @@ def add_dbmetadata(database):
             utilitary.executesqlmetadatainsertion(insertion,cursor)
             # commit sql change, so it actually appears in the database
             database.commit()
+     ########################
+    # from OBO official file, parsing it like a savage because i can't make the libraries work
+    # NOTE: for some reason an empty term is added, needs to be fixed
+    urllib.request.urlretrieve("https://raw.githubusercontent.com/obophenotype/human-phenotype-ontology/master/hp.obo", config.METADATA+"mmdb_obophenotype_HPOs.obo")
+    f = open(config.METADATA+"mmdb_obophenotype_HPOs.obo", 'r')
+    hpo_term = ''
+    hpo_name = ''
+    hpo_definition = ''
+    hpo_comment = ''
+    hpo_type = 'HPO obophenotype'
+    for line in f:
+        if '[Term]' in line:
+            if hpo_term in hpoarr:
+                # build sql command
+                insertion = ("INSERT INTO Ontology \
+                (id_ontologyterm, name, definition, type) \
+                VALUES ("+ \
+                ",".join(['"'+str(hpo_term)+'"', '"'+str(hpo_name)+'"','"'+str(hpo_definition)+'"', '"'+str(hpo_type)+'"']) \
+                +");")
+                # execute command
+                utilitary.executesqlmetadatainsertion(insertion,cursor)
+                # commit sql change, so it actually appears in the database
+                database.commit()
+            else:
+                hpo_term = ''
+                hpo_name = ''
+                hpo_definition = ''
+                hpo_comment = ''
+        else:
+            if 'id:' in line:
+                hpo_term = str(line.split('id:')[1]).strip()
+            if 'name:' in line:
+                hpo_name = ((str(line.split('name:')[1])).replace(" ", "", 1)).replace("\n", '')
+            if 'def:' in line:
+                hpo_definition = ((str(line.split('def:')[1]).replace('"', '')).replace(" ", "", 1)).replace("\n", '')
+            if 'comment:' in line:
+                hpo_comment = str(line.split('comment:')[1]).replace('\n','')
+
     ########
     # MONDO
     mondoarr = []
@@ -212,7 +279,10 @@ def create_variant_tables(database):
     # Gene Table, id_gene PK, no FK
     instruction =("CREATE TABLE Gene \
     (id_gene INT PRIMARY KEY NOT NULL, \
-    name VARCHAR(25) \
+    name VARCHAR(25), \
+    chr VARCHAR(5), \
+    start INT(15), \
+    end INT(15) \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Annotation Table, id_annotation PK, id_variant FK
@@ -260,13 +330,15 @@ def create_sample_tables(database):
     )ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Sample Table, id_sample PK, id_labo FK
+    # if id_sample_in_lab is encrypted, UNIQUE constraint is useless
     instruction = ("CREATE TABLE Sample (\
     id_sample INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
-    id_sample_in_lab VARCHAR(50) NOT NULL, \
+    id_sample_in_lab VARCHAR(150) NOT NULL, \
     tissue VARCHAR(25) NOT NULL, \
     haplogroup VARCHAR(50), \
     id_labo INT, \
     sample_date DATE, \
+    age_at_samping INT, \
     UNIQUE(id_sample_in_lab, tissue, sample_date), \
     CONSTRAINT fk_id_labo_laboratory FOREIGN KEY (id_labo) REFERENCES Laboratory(id_labo) ON UPDATE CASCADE, \
     type VARCHAR(25) \
@@ -283,6 +355,7 @@ def create_sample_tables(database):
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Sample_Ontology Table, PK id_sample_ontology, FK id_ontology, FK id_sample
+    # A sample can have several Ontologies and an Ontology can have several associated samples
     instruction = ("CREATE TABLE Sample_Ontology ( \
     id_ontology_sample INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
     id_ontology INT NOT NULL, \
@@ -294,21 +367,22 @@ def create_sample_tables(database):
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Clinic Table
+    # a clinic is unique, but can have several associated sammples
     instruction = ("CREATE TABLE Clinic ( \
     id_patient INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
     id_patient_in_lab VARCHAR(125) UNIQUE, \
     sex VARCHAR(10), \
-    age INT, \
     age_of_onset VARCHAR(50), \
     cosanguinity VARCHAR(10) \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Sample_Clinic Table
+    # A sammple can have only one clinic
     instruction = ("CREATE TABLE Sample_Clinic ( \
     id_patient_sample INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
     id_patient INT NOT NULL, \
     CONSTRAINT fk_id_patient_sample_clinic FOREIGN KEY (id_patient) REFERENCES Clinic(id_patient) ON UPDATE CASCADE, \
-    id_sample INT NOT NULL, \
+    id_sample INT NOT NULL UNIQUE, \
     UNIQUE(id_patient, id_sample), \
     CONSTRAINT fk_id_sample_sample_clinic FOREIGN KEY (id_sample) REFERENCES Sample(id_sample) ON UPDATE CASCADE \
     ) ENGINE=INNODB;")
@@ -335,6 +409,7 @@ def create_analysis_tables(database):
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Analysis Table
+    # the unique association between a sample and a technique is an analysis
     instruction = ("CREATE TABLE Analysis ( \
     id_analysis INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
     date_analysis DATE, \
@@ -342,6 +417,8 @@ def create_analysis_tables(database):
     CONSTRAINT fk_id_sample FOREIGN KEY (id_sample) REFERENCES Sample(id_sample) ON UPDATE CASCADE, \
     id_tech INT, \
     CONSTRAINT fk_id_tech FOREIGN KEY (id_tech) REFERENCES Technique(id_tech) ON UPDATE CASCADE \
+    id_user VARCHAR(25), \
+    UNIQUE(id_sample, id_tech), \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # User Table
@@ -354,13 +431,11 @@ def create_analysis_tables(database):
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Variant_Call Table
+    # id_analysis is the unique association between an id_sample and an id_tech
     instruction = ("CREATE TABLE Variant_Call ( \
     id_call INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
-    quality FLOAT, \
     heteroplasmy_rate FLOAT, \
     heteroplasmy VARCHAR(3), \
-    depth INT, \
-    id_user VARCHAR(25), \
     CONSTRAINT fk_user FOREIGN KEY (id_user) REFERENCES User(id_user), \
     id_analysis INT, \
     CONSTRAINT fk_analysis FOREIGN KEY (id_analysis) REFERENCES Analysis(id_analysis) ON UPDATE CASCADE, \

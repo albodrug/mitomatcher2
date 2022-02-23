@@ -16,4 +16,7 @@ STICMITOCHIPxls='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/stic/MITOCHIP'
 
 # MitoMatcherDB input
 METADATA='/home/abodrug/mitomatcher2_dev/input/metadata/'
-PATIENTINPUTsurveyor='/home/abodrug/mitomatcher2_dev/input/surveyor/'
+PATIENTINPUTsurveyormitochip='/home/abodrug/mitomatcher2_dev/input/json_surveyormitochip/'
+
+# Encryption
+FERNETKEY='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/mmdb2_fernet.key'

@@ -31,6 +31,7 @@ if sys.argv[1] in ["-h", "--help", "-help", "getopt", "usage"]:
     sys.exit('''
     -t  --type  :   Type of data to format. Each dataset has its own formats and has to be parsed separately.
                     choices "[stic, mdenis, genbank]"
+    -v  --verbose : Make script verbose.
     ''')
 
 ###################
@@ -38,6 +39,7 @@ if sys.argv[1] in ["-h", "--help", "-help", "getopt", "usage"]:
 ###################
 p = ap.ArgumentParser()
 p.add_argument("-t", "--type", required=True, choices=['stic','mdenis','genbank'])
+p.add_argument("-v", "--verbose", required=False, default=False, action='store_true')
 args = p.parse_args()
 
 #############
@@ -46,16 +48,18 @@ args = p.parse_args()
 #
 def build_json():
     ''' This is the function that builds the final json.
-        Takes in:
-        Returns nothing but prints a json per patient.
+        Takes in: nothing
+        Returns nothing but buils_json_stic write a json per sample-analyses.
     '''
     if args.type == "stic":
         build_stic_json()
+    if args.type == "mdenis":
+        build_mdenis_json()
 #
 def build_stic_json():
     ''' Builds json file using stic data files. (Bannwarth et al. 2013)
         No input. Path to the files can be found in the config.py
-        Returns nothing but prints a json per patient.
+        Returns nothing but prints a json per sample-analysis, containing clinical, technical info.
     '''
     ################
     # Get and format identifiers accross clinical, surveyor and mitochip data
@@ -65,28 +69,34 @@ def build_stic_json():
 
     ################
     # Get some stats
-    get_stats(clinical_identifiers, surveyor_identifiers, mitochip_identifiers)
+    if args.verbose:
+        get_stats(clinical_identifiers, surveyor_identifiers, mitochip_identifiers)
 
     ################
-    # Build Jsons
+    # Build jsons
     for cid in clinical_identifiers:
+        # Build a json if patient was squenced with mitochip: 772 mitochip patients with clinical data
         if cid in mitochip_identifiers:
             clinical_info = build_clinical_json(cid, args.type) # functional, uses clinic data
             sample_info = build_sample_json(cid, args.type) # functinal, uses clinic data
             sequencing_info = build_sequencing_json(cid, args.type+'-mitochip') # to code, use mitochip xls
             mitochip_data = {**clinical_info, **sample_info, **sequencing_info}
-            print(mitochip_data)
-
-        elif cid in surveyor_identifiers:
+            with open(config.PATIENTINPUTsurveyormitochip+cid+"_mitochip.json", 'w', encoding='utf-8') as f:
+                json.dump(mitochip_data, f, ensure_ascii=False, indent=4)
+                if args.verbose:
+                    print("Wrote mitochip data to:", config.PATIENTINPUTsurveyormitochip+"mitochip_"+cid+".json")
+        # Build a json if patient was sequenced with mitochip: 741 surveyor patients with clinical data
+        if cid in surveyor_identifiers:
             clinical_info = build_clinical_json(cid, args.type)
             sample_info = build_sample_json(cid, args.type)
             sequencing_info = build_sequencing_json(cid, args.type+'-surveyor')
             surveyor_data = {**clinical_info, **sample_info, **sequencing_info}
-            with open(config.PATIENTINPUTsurveyor+"surveyor_"+cid+".json", 'w', encoding='utf-8') as f:
+            with open(config.PATIENTINPUTsurveyormitochip+cid+"_surveyor.json", 'w', encoding='utf-8') as f:
                 json.dump(surveyor_data, f, ensure_ascii=False, indent=4)
-                print("Wrote surveyor data to:", config.PATIENTINPUTsurveyor+"surveyor_"+cid+".json")
-
-
+                if args.verbose:
+                    print("Wrote surveyor data to:", config.PATIENTINPUTsurveyormitochip+"surveyor_"+cid+".json")
+        # NB: There are 699 patients with surveyor and mitochip and clinical data.
+        # There are 772 mitochip/clinical pairs, 741 surveyor/clinical, 72 only mitochip/clinical, 42 only syrveyor/clinical
     return 0
 #
 def get_stats(clinical_identifiers, surveyor_identifiers, mitochip_identifiers):
@@ -133,7 +143,6 @@ def build_clinical_json(patid, source):
     # All needed info
     name = ''
     sex = ''
-    age_at_sampling = ''
     age_of_onset = ''
     cosanguinity = ''
     hpoterm = ''
@@ -148,13 +157,12 @@ def build_clinical_json(patid, source):
             id = sheet.cell(rowx=row_index,colx=0).value
             if patid == id:
                 name = id[5:]
-                patient_id = id
+                patient_id = "STIC-"+patid
                 sex = sheet.cell(rowx=row_index,colx=1).value
                 if sex == 'WOMAN':
                     sex='F'
                 elif sex == 'MAN':
                     sex='M'
-                age_at_sampling = 'unknown'
                 age_of_onset = sheet.cell(rowx=row_index,colx=2).value
                 cosanguinity = sheet.cell(rowx=row_index,colx=3).value
                 # Phenotype information
@@ -184,7 +192,6 @@ def build_clinical_json(patid, source):
             'name' : name,
             'patient_id' : patient_id,
             'sex' : sex,
-            'age_at_sampling' : age_at_sampling,
             'age_of_onset' : age_of_onset,
             'cosanguinity' : cosanguinity
         },
@@ -194,9 +201,6 @@ def build_clinical_json(patid, source):
             'ordo' : {}
         }
     }
-    #with open(config.PATIENTINPUT+"STIC_CLINICAL_"+patient_id+".json", 'w', encoding='utf-8') as f:
-    #    json.dump(clinical, f, sort_keys=False, ensure_ascii=False, indent=4)
-
     return clinical
 #
 def build_sample_json(patid, source):
@@ -209,6 +213,7 @@ def build_sample_json(patid, source):
     laboratory_of_sampling = ''
     laboratory_of_reference = ''
     date_of_sampling = ''
+    age_at_sampling = ''
     tissue = ''
     type = ''
     data_handler = ''
@@ -221,7 +226,8 @@ def build_sample_json(patid, source):
         laboratory_of_sampling = int(patid[0:2])
         laboratory_of_reference = int(patid[0:2])
         date_of_sampling = '2012-4-11'
-        tissue = 'blood urine'
+        age_at_sampling = 'unknown'
+        tissue = 'blood urine muscle'
         type = 'index-stic'
         data_handler = 'Sylvie Bannwarth'
         data_handler_email = 'sylvie.bannwarth@unice.fr'
@@ -233,6 +239,7 @@ def build_sample_json(patid, source):
             'laboratory_of_sampling' : laboratory_of_sampling,
             'laboratory_of_reference' : laboratory_of_reference,
             'date_of_sampling' : date_of_sampling,
+            'age_at_sampling' : age_at_sampling,
             'tissue' : tissue,
             'type' : type,
             'data_handler' : data_handler,
@@ -245,7 +252,7 @@ def build_sample_json(patid, source):
     return sampleinfo
 #
 def build_sequencing_json(patid, source):
-    ''' Builds MitoMatcher compatible Sequencing info .json
+    ''' Builds MitoMatcher compatible Sequencing/Analysis info .json
         Input is patient id and data type (stic-surveyor, mdenis).
         Output is a json formatted hash.
     '''
@@ -256,10 +263,12 @@ def build_sequencing_json(patid, source):
     mapper = ''
     caller = ''
     pipeline_version = ''
+    analysis_date = ''
     catalog = []
     # Parsing files
     if source == 'stic-surveyor':
         sequencer = 'surveyor'
+        analysis_date = '2012-4-11'
         technique = 2
         file = config.STICSURVEYORxls
         book = xlrd.open_workbook(file)
@@ -272,6 +281,7 @@ def build_sequencing_json(patid, source):
                         if call != '' :
                             # Data frame of a variant
                             variant = {
+                                'chr' : 'chrM',
                                 'pos' : -1,
                                 'ref' : -1,
                                 'alt' : -1,
@@ -282,7 +292,7 @@ def build_sequencing_json(patid, source):
                             }
                             if 'ho' in call or 'HO' in call or 'hO' in call:
                                 heteroplasmy_status = 'HOM'
-                            elif 'he' in call or 'HE' in call or 'hE' in call:
+                            elif 'he' in call or 'HE' in call or 'hE' in call or 'He' in call:
                                 heteroplasmy_status = 'HET'
                             elif 'dec' in call or 'DEC' in call:
                                 heteroplasmy_status = 'DEC'
@@ -298,21 +308,64 @@ def build_sequencing_json(patid, source):
 
     elif source == 'stic-mitochip':
         sequencer = 'mitochip'
+        analysis_date = '2012-4-11'
         technique = 1
         laboratory_nr = int(patid[0:2])
         sampling_nr = int(patid[2:5])
-        mitochip_file = open(config.STICMITOCHIPxls+"_c"+laboratory_nr)
-        pass
+        mitochip_file = config.STICMITOCHIPxls+"_c"+str(laboratory_nr)+"_2012-04-11.xls"
+        book = xlrd.open_workbook(mitochip_file)
+        for sheet_index in range(book.nsheets):
+            sheet = book.sheet_by_index(sheet_index)
+            for row in range(1,sheet.nrows):
+                centre = int(sheet.cell(rowx=row,colx=0).value)
+                sample = int(sheet.cell(rowx=row,colx=1).value)
+                if laboratory_nr == centre and sampling_nr == sample:
+                    # Data frame of a variant
+                    variant = {
+                        'chr' : 'chrM',
+                        'pos' : -1,
+                        'ref' : -1,
+                        'alt' : -1,
+                        'heteroplasmy_rate' : '',
+                        'heteroplasmy_status' : '',
+                        'depth' : '',
+                        'quality' : ''
+                    }
+                    variant['pos'] = int(sheet.cell(rowx=row,colx=5).value)
+                    variant['ref'] = str(sheet.cell(rowx=row,colx=6).value).upper()
+                    # First sheet carries homoplasmic variants
+                    if sheet_index == 0:
+                        variant['alt'] = str(sheet.cell(rowx=row,colx=7).value).upper()
+                        variant['heteroplasmy_rate'] = 1
+                        variant['heteroplasmy_status'] = 'HOM'
+                    # Second sheet carries heteroplasmic variants
+                    elif sheet_index == 1:
+                        variant['heteroplasmy_status'] = 'HET'
+                        major_allele = str(sheet.cell(rowx=row,colx=7).value).upper()
+                        major_af = float(sheet.cell(rowx=row,colx=8).value)
+                        minor_allele = str(sheet.cell(rowx=row,colx=9).value).upper()
+                        minor_af = float(sheet.cell(rowx=row,colx=10).value)
+                        if variant['ref'] == minor_allele:
+                            variant['alt'] = major_allele
+                            variant['heteroplasmy_rate'] = float(major_af/100)
+                        elif variant['ref'] == major_allele:
+                            variant['alt'] = minor_allele
+                            variant['heteroplasmy_rate'] = float(minor_af/100)
+                        else:
+                            print('Warning: issue with alleles in heteroplasmic variants: PATID REF MAJAL MINAL', \
+                            str(patid), str(ref), str(major_allele), str(minor_allele) )
+                    catalog.append(variant)
 
     # Fill in frame
     sequencinginfo = {
-        'Sequencing' : {
+        'Analysis' : {
             'technique' : technique,
             'library' : library,
             'sequencer' : sequencer,
             'mapper' : mapper,
             'caller' : caller,
-            'pipeline_version' : pipeline_version
+            'pipeline_version' : pipeline_version,
+            'analysis_date' : analysis_date
         },
         'Catalog' : catalog
     }
@@ -328,3 +381,8 @@ if __name__ == "__main__":
         print("\t###You requested building a MitoMatcherDB compatible .json from the:\n\t\tBannwarth et al. 2012 dataset.")
         print("\t###Good luck soldier, these treachearous file formats will be the end of us. Brace.")
         build_json()
+    if args.type == 'mdenis':
+        print("\t###You requested building a MitoMatcherDB compatible .json from the:\n\t\tDenis et al. 2022 dataset.")
+        print("\t###Good luck and don't forget to take off your party hat before boarding the file format rollercoaster.")
+        build_json()
+    print("Processing ended.")

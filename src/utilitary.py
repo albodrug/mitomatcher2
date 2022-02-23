@@ -48,10 +48,10 @@ def executesqlinstruction(instruction, cursor):
     try:
         cursor.execute(instruction)
         print(bcolors.OKCYAN + "Successful SQL instruction." + bcolors.ENDC)
-        print(instruction)
+        print(bcolors.BOLD + bcolors.OKGREEN + instruction + bcolors.ENDC)
     except:
         print(bcolors.WARNING + "Could not execute SQL instruction." + bcolors.ENDC)
-        print(instruction)
+        print(bcolors.BOLD + bcolors.WARNING + bcolors.WARNING + instruction + bcolors.ENDC)
 #
 def executesqlmetadatainsertion(insertion, cursor):
     ''' Tries to execute the SQL insertion of the metadata on the database cursor.
@@ -60,11 +60,62 @@ def executesqlmetadatainsertion(insertion, cursor):
     '''
     try:
         cursor.execute(insertion)
-        print(bcolors.OKCYAN + "Successful SQL insertion." + bcolors.ENDC)
-        print(insertion)
+        print(bcolors.OKGREEN + "Successful SQL insertion." + bcolors.ENDC)
+        print(bcolors.BOLD + bcolors.OKGREEN + insertion + bcolors.ENDC)
     except:
         print(bcolors.WARNING + "Could not execute SQL insertion." + bcolors.ENDC)
-        print(insertion)
+        print(bcolors.BOLD + bcolors.WARNING + insertion + bcolors.ENDC)
+#
+def executeselectinsert(select, insert, cursor):
+   ''' Tries to execute the SQL insertion. Tries to select before insertion.
+       Takes in the catalog json/dict, cursor.
+       Returns nothing, but if successful database is updated.
+   '''
+   # Function tries to select items, if none found in the database, it will attempt
+   # to insert the items.
+   try:
+       cursor.execute(select)
+       result = cursor.fetchall()[0]
+       print(bcolors.OKCYAN + "[si]Entry already exists." + bcolors.ENDC)
+       print(bcolors.BOLD + bcolors.OKCYAN + select + bcolors.ENDC)
+   except:
+       print(bcolors.WARNING + "[si]Could not execute SQL selection. Proceed to insertion!" + bcolors.ENDC)
+       print(bcolors.WARNING + bcolors.BOLD + select + bcolors.ENDC)
+       try:
+           cursor.execute(insert)
+           print(bcolors.OKGREEN + "[si]Successful SQL insertion." + bcolors.ENDC)
+           print(bcolors.BOLD + bcolors.OKGREEN + insert + bcolors.ENDC)
+       except:
+           print(bcolors.WARNING + "[si]Could not execute SQL insertion." + bcolors.ENDC)
+           print(bcolors.BOLD + bcolors.WARNING + insert + bcolors.ENDC)
+#
+def executeselect(select, cursor):
+   ''' Tries to select from database.
+       Takes in the catalog json/dict, cursor.
+       Returns selection.
+   '''
+   try:
+       cursor.execute(select)
+       print(bcolors.OKCYAN + "[s]Sucessful SQL selection." + bcolors.ENDC)
+       print(bcolors.BOLD + bcolors.OKCYAN + bcolors.OKCYAN + select + bcolors.ENDC)
+       return cursor.fetchall()
+   except:
+       print(bcolors.WARNING + "[s]Could not execute SQL selection." + bcolors.ENDC)
+       print(bcolors.BOLD + bcolors.WARNING + select + bcolors.ENDC)
+       return None
+#
+def executeinsert(insert, cursor):
+    ''' For when insertion should be done without check, or with an external check
+        For exampe in the case of encrypted ids.
+    '''
+    try:
+        cursor.execute(insert)
+        print(bcolors.OKGREEN + "[i]Sucessful SQL insertion." + bcolors.ENDC)
+        print(bcolors.BOLD + bcolors.OKGREEN + insert + bcolors.ENDC)
+    except:
+        print(bcolors.WARNING + "[i]SQL insertion failed (did you perform a check on wether the entry exists already?)." + bcolors.ENDC)
+        print(bcolors.BOLD + bcolors.WARNING + insert + bcolors.ENDC)
+
 #
 def get_id(file, source):
     ''' Parses files to get patient idientifiers
