@@ -12,7 +12,9 @@ import pymysql
 import xlrd
 #
 import config
-
+#
+from cryptography.fernet import Fernet
+#
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -199,3 +201,21 @@ def get_stic_haplogroup(patid):
 
     #print(centre, patient, initiales, haplo_id, haplogroup)
     return haplogroup
+#
+def encrypt(id):
+    ''' Encrypts sample id before insertion into mmdb2
+    '''
+    bid = bytes(id, 'utf-8')
+    key = open(config.FERNETKEY, 'rb').read()
+    fernet = Fernet(key)
+    kryptid = fernet.encrypt(bid)
+    return kryptid
+#
+def decrypt(kryptid):
+    ''' Decrypts sample id
+    '''
+    key = open(config.FERNETKEY, 'rb').read()
+    fernet = Fernet(key)
+    bid = fernet.decrypt(kryptid)
+    id = bid.decode("utf-8")
+    return id

@@ -229,8 +229,49 @@ def build_sample_json(patid, source):
         age_at_sampling = 'unknown'
         tissue = 'blood urine muscle'
         type = 'index-stic'
-        data_handler = 'Sylvie Bannwarth'
-        data_handler_email = 'sylvie.bannwarth@unice.fr'
+        centre = str(patid[:2])
+        if centre == "01":
+            data_handler = 'Sylvie Bannwarth'
+            data_handler_email = 'sylvie.bannwarth@unice.fr'
+        elif centre == "02":
+            data_handler = 'ljonard'
+            data_handler_email = 'laurence.jonard@nck.aphp.fr'
+        elif centre == "03":
+            data_handler = 'vprocaccio'
+            data_handler_email = 'vincent.procaccio@univ-angers.fr'
+        elif centre == "04":
+            data_handler = 'brucheton'
+            data_handler_email = 'benoit.rucheton@aphp.fr'
+        elif centre == "05":
+            data_handler = 'mlmartinnegrier'
+            data_handler_email = 'marie-laure.martin-negrier@u-bordeaux.fr'
+        elif centre == "06":
+            data_handler = 'ghardy'
+            data_handler_email = 'ghardy@chu-grenoble.fr'
+        elif centre == "07":
+            data_handler = 'pgaignard'
+            data_handler_email = 'pauline.gaignard@aphp.fr'
+        elif centre == "08":
+            data_handler = 'adevos '
+            data_handler_email = 'aurore.devos@chu-lille.fr'
+        elif centre == "09":
+            data_handler = 'cpagan'
+            data_handler_email = 'cecile.pagan@chu-lyon.fr'
+        elif centre == "10":
+            data_handler = 'usertrousseau'
+            data_handler_email = 'ND'
+        elif centre == "11":
+            data_handler = 'aslebre'
+            data_handler_email = 'aslebre@chu-reims.fr'
+        elif centre == "12":
+            data_handler = 'abodrug'
+            data_handler_email = 'alexandrina.bodrug@chu-angers.fr'
+        elif centre == "13":
+            data_handler = 'sallouche'
+            data_handler_email = 'allouche-s@chu-caen.fr'
+        else:
+            print("User issue:", centre, patid)
+
         haplogroup = utilitary.get_stic_haplogroup(patid)
     # Filling in frame
     sampleinfo = {

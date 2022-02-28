@@ -1,0 +1,400 @@
+{
+    "Clinical": {
+        "name": "TST",
+        "patient_id": "STIC-01003TST",
+        "sex": "M",
+        "age_of_onset": "neonatal",
+        "cosanguinity": "NO"
+    },
+    "Ontology": {
+        "hpo": {
+            "HP:0003011": "Present",
+            "HP:0000508": "Present",
+            "HP:0012638": "Present",
+            "HP:0000759": "Absent",
+            "HP:0009830": "Absent",
+            "HP:0000478": "Present",
+            "HP:0000648": "Present",
+            "HP:0000365": "Absent",
+            "HP:0001626": "Absent",
+            "HP:0025031": "Absent",
+            "HP:0000819": "Absent",
+            "HP:0001392": "Absent",
+            "HP:0025155": "Absent",
+            "HP:0000077": "Absent",
+            "HP:0001871": "Absent",
+            "HP:0410263": "Present",
+            "HP:0001297": "Present",
+            "HP:0004303": "Present",
+            "HP:0009058": "Present",
+            "HP:0003128": "Present",
+            "HP:0002490": "Present"
+        },
+        "orpha": {},
+        "ordo": {}
+    },
+    "Sample": {
+        "sample_id_in_lab": "STIC-01003TST",
+        "laboratory_of_sampling": 1,
+        "laboratory_of_reference": 1,
+        "date_of_sampling": "2012-4-11",
+        "age_at_sampling": "unknown",
+        "tissue": "blood urine muscle",
+        "type": "index-stic",
+        "data_handler": "Sylvie Bannwarth",
+        "data_handler_phone": "",
+        "data_handler_email": "sylvie.bannwarth@unice.fr",
+        "haplogroup": "U2e1a1"
+    },
+    "Analysis": {
+        "technique": 1,
+        "library": "",
+        "sequencer": "mitochip",
+        "mapper": "",
+        "caller": "",
+        "pipeline_version": "",
+        "analysis_date": "2012-4-11"
+    },
+    "Catalog": [
+        {
+            "chr": "chrM",
+            "pos": 173,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 1152,
+            "ref": "T",
+            "alt": "C",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 1217,
+            "ref": "T",
+            "alt": "C",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 1263,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 1340,
+            "ref": "C",
+            "alt": "T",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 1508,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 1750,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 1438,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 1811,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 2716,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 3116,
+            "ref": "C",
+            "alt": "T",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 3721,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 6045,
+            "ref": "C",
+            "alt": "T",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 6152,
+            "ref": "T",
+            "alt": "C",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 7028,
+            "ref": "C",
+            "alt": "T",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 8860,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 10191,
+            "ref": "T",
+            "alt": "C",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 10876,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 11197,
+            "ref": "C",
+            "alt": "T",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 11467,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 11719,
+            "ref": "G",
+            "alt": "A",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 11732,
+            "ref": "T",
+            "alt": "C",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 12307,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 12308,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 12372,
+            "ref": "G",
+            "alt": "A",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 13020,
+            "ref": "T",
+            "alt": "C",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 13958,
+            "ref": "G",
+            "alt": "C",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 14766,
+            "ref": "C",
+            "alt": "T",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 15326,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 15907,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 16051,
+            "ref": "A",
+            "alt": "G",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 16129,
+            "ref": "G",
+            "alt": "C",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 16183,
+            "ref": "A",
+            "alt": "C",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        },
+        {
+            "chr": "chrM",
+            "pos": 16189,
+            "ref": "T",
+            "alt": "C",
+            "heteroplasmy_rate": 1,
+            "heteroplasmy_status": "HOM",
+            "depth": "",
+            "quality": ""
+        }
+    ]
+}

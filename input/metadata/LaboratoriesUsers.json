@@ -31,7 +31,10 @@
       "svasseur" : ["sophie.vasseur@chu-lyon.fr", "CHU Lyon"],
       "ljonard" : ["laurence.jonard@nck.aphp.fr", "CHU Necker"],
       "aslebre" : ["aslebre@chu-reims.fr", "CHU Reims"],
-      "sallouche" : ["allouche-s@chu-caen.fr", "CHU Caen"]
+      "sallouche" : ["allouche-s@chu-caen.fr", "CHU Caen"],
+      "abodrug" : ["alexandrina.bodrug@chu-angers.fr", "CHU Angers"],
+      "usertrousseau" : ["ND", "CHU Trousseau"]
+
   },
   "Technique" : {
       "genbank" : {"index" : 0, "library" : "", "sequencer" : "genbank", "mapper" : "", "caller" : "", "pipeline_version" : ""},

@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-#02/2022
-#abodrug
+# 02/2022
+# abodrug
 
 # This script inserts data into MitoMatcherDB.v2 using json files
 # Only json files for STIC data.
@@ -23,14 +23,13 @@ from cryptography.fernet import Fernet
 ####################
 # help description #
 ####################
-if len(sys.argv) == 1:
-    sys.argv.append("--help")
-if sys.argv[1] in ["-h", "--help", "-help", "getopt", "usage"]:
-    sys.exit('''
-    -t  --type  :   Type of data to format. Each dataset has its own formats and has to be parsed separately.
-                    choices "[stic, mdenis, genbank]"
-    -v  --verbose : Make script verbose.
-    ''')
+for el in sys.argv:
+    if el in ["-h", "--help", "-help", "getopt", "usage"]:
+        sys.exit('''
+        -t  --type  :   Type of data to format. Each dataset has its own formats and has to be parsed separately.
+                        choices "[stic, mdenis, genbank]"
+        -v  --verbose : Make script verbose.
+        ''')
 
 ###################
 # argument parser #
@@ -393,6 +392,6 @@ def decrypt(kryptid):
 if __name__ == "__main__":
     if args.type == 'stic':
         print("Insertion into database initiated. Put on your safety gear and brace.")
-        password = 'Mimas' #getpass.getpass()
+        password = config.PWDADMIN  #getpass.getpass()
         database = utilitary.connect2databse(str(password))
         insert_stic(database)

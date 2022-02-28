@@ -13,7 +13,6 @@ import sys, glob, os
 import argparse as ap
 import getpass
 import json
-import fastobo
 import requests
 import urllib.request
 import re
@@ -408,19 +407,6 @@ def create_analysis_tables(database):
     pipeline_version VARCHAR(25) \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
-    # Analysis Table
-    # the unique association between a sample and a technique is an analysis
-    instruction = ("CREATE TABLE Analysis ( \
-    id_analysis INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
-    date_analysis DATE, \
-    id_sample INT, \
-    CONSTRAINT fk_id_sample FOREIGN KEY (id_sample) REFERENCES Sample(id_sample) ON UPDATE CASCADE, \
-    id_tech INT, \
-    CONSTRAINT fk_id_tech FOREIGN KEY (id_tech) REFERENCES Technique(id_tech) ON UPDATE CASCADE \
-    id_user VARCHAR(25), \
-    UNIQUE(id_sample, id_tech), \
-    ) ENGINE=INNODB;")
-    utilitary.executesqlinstruction(instruction, cursor)
     # User Table
     instruction = ("CREATE TABLE User ( \
     id_user VARCHAR(25) PRIMARY KEY NOT NULL, \
@@ -430,13 +416,26 @@ def create_analysis_tables(database):
     CONSTRAINT fk_user_labo FOREIGN KEY (id_labo) REFERENCES Laboratory(id_labo) ON UPDATE CASCADE \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
+    # Analysis Table
+    # the unique association between a sample and a technique is an analysis
+    instruction = ("CREATE TABLE Analysis ( \
+    id_analysis INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
+    date_analysis DATE, \
+    id_sample INT, \
+    CONSTRAINT fk_id_sample FOREIGN KEY (id_sample) REFERENCES Sample(id_sample) ON UPDATE CASCADE, \
+    id_tech INT, \
+    CONSTRAINT fk_id_tech FOREIGN KEY (id_tech) REFERENCES Technique(id_tech) ON UPDATE CASCADE, \
+    id_user VARCHAR(25), \
+    CONSTRAINT fk_user FOREIGN KEY (id_user) REFERENCES User(id_user), \
+    UNIQUE(id_sample, id_tech) \
+    ) ENGINE=INNODB;")
+    utilitary.executesqlinstruction(instruction, cursor)
     # Variant_Call Table
     # id_analysis is the unique association between an id_sample and an id_tech
     instruction = ("CREATE TABLE Variant_Call ( \
     id_call INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
     heteroplasmy_rate FLOAT, \
     heteroplasmy VARCHAR(3), \
-    CONSTRAINT fk_user FOREIGN KEY (id_user) REFERENCES User(id_user), \
     id_analysis INT, \
     CONSTRAINT fk_analysis FOREIGN KEY (id_analysis) REFERENCES Analysis(id_analysis) ON UPDATE CASCADE, \
     id_variant INT, \
@@ -452,7 +451,7 @@ def create_analysis_tables(database):
 if __name__ == "__main__":
     if args.createdb :
         print("Database creation initiated. Put on your safety gear and brace.")
-        password = 'Mimas' #getpass.getpass()
+        password = config.PWDADMIN #getpass.getpass()
         database = utilitary.connect2databse(str(password))
         create_db(database)
     if args.addmeta :

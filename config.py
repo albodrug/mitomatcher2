@@ -5,6 +5,13 @@
 
 # Thus script contains paths and global variable for the MitoMatcher script suite
 
+# passwordS AND USERS
+USERADMIN = 'mito_admin'
+PWDADMIN = ''
+USER = 'mito_user'
+PWD = ''
+DATABASE = 'mitomatcher2'
+
 # script source
 SOURCE='/home/abodrug/mitomatcher2_dev/src/'
 
