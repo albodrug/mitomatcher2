@@ -21,9 +21,13 @@ STICCLINICxls='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/stic/CLINIC_BDD_PSTIC
 STICSURVEYORxls='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/stic/SURVEYOR-Final.xls'
 STICMITOCHIPxls='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/stic/MITOCHIP'
 
+# raw data retro Ion Proton and Ion 5S XL Systems
+IONTHERMO='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/thermofisher_runs/'
+
 # MitoMatcherDB input
 METADATA='/home/abodrug/mitomatcher2_dev/input/metadata/'
 PATIENTINPUTsurveyormitochip='/home/abodrug/mitomatcher2_dev/input/json_surveyormitochip/'
+PATIENTINPUTretrofisher='/home/abodrug/mitomatcher2_dev/input/json_retrofisher/'
 
 # Encryption
 FERNETKEY='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/mmdb2_fernet.key'

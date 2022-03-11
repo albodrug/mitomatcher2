@@ -403,7 +403,7 @@ def create_analysis_tables(database):
     library VARCHAR(25), \
     sequencer VARCHAR(25), \
     mapper VARCHAR(25), \
-    caller VARCHAR(25), \
+    caller VARCHAR(65), \
     pipeline_version VARCHAR(25) \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
@@ -426,7 +426,7 @@ def create_analysis_tables(database):
     id_tech INT, \
     CONSTRAINT fk_id_tech FOREIGN KEY (id_tech) REFERENCES Technique(id_tech) ON UPDATE CASCADE, \
     id_user VARCHAR(25), \
-    CONSTRAINT fk_user FOREIGN KEY (id_user) REFERENCES User(id_user), \
+    CONSTRAINT fk_user_analysis FOREIGN KEY (id_user) REFERENCES User(id_user), \
     UNIQUE(id_sample, id_tech) \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
@@ -436,6 +436,8 @@ def create_analysis_tables(database):
     id_call INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
     heteroplasmy_rate FLOAT, \
     heteroplasmy VARCHAR(3), \
+    id_user VARCHAR(25), \
+    CONSTRAINT fk_user_variantcall FOREIGN KEY (id_user) REFERENCES User(id_user) ON UPDATE CASCADE, \
     id_analysis INT, \
     CONSTRAINT fk_analysis FOREIGN KEY (id_analysis) REFERENCES Analysis(id_analysis) ON UPDATE CASCADE, \
     id_variant INT, \
