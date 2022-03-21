@@ -36,6 +36,7 @@ if sys.argv[1] in ["-h", "--help", "-help", "getopt", "usage"]:
     -t  --type  :   Type of data to format. Each dataset has its own formats and has to be parsed separately.
                     choices "[stic, mdenis, genbank, retrofisher]"
     -v  --verbose : Make script verbose.
+    -t  --threads : Number of threads to use (for retro fisher data)
     ''')
 
 ###################
@@ -44,6 +45,7 @@ if sys.argv[1] in ["-h", "--help", "-help", "getopt", "usage"]:
 p = ap.ArgumentParser()
 p.add_argument("-t", "--type", required=True, choices=['stic','mdenis','genbank', "retrofisher"])
 p.add_argument("-v", "--verbose", required=False, default=False, action='store_true')
+p.add_argument("-n", "--threads", required=False, type=int)
 args = p.parse_args()
 
 #############
@@ -89,7 +91,7 @@ def build_stic_json():
             sequencing_info = build_sequencing_json(cid, args.type+'-mitochip') # to code, use mitochip xls
             mitochip_data = {**clinical_info, **sample_info, **sequencing_info}
             with open(config.PATIENTINPUTsurveyormitochip+cid+"_mitochip.json", 'w', encoding='utf-8') as f:
-                json.dump(mitochip_data, f, ensure_ascii=False, indent=4)
+                json.dump(mitochip_data, f, ensure_ascii=False, indent=4, default=str)
                 if args.verbose:
                     print("Wrote mitochip data to:", config.PATIENTINPUTsurveyormitochip+"mitochip_"+cid+".json")
         # Build a json if patient was sequenced with mitochip: 741 surveyor patients with clinical data
@@ -99,13 +101,90 @@ def build_stic_json():
             sequencing_info = build_sequencing_json(cid, args.type+'-surveyor')
             surveyor_data = {**clinical_info, **sample_info, **sequencing_info}
             with open(config.PATIENTINPUTsurveyormitochip+cid+"_surveyor.json", 'w', encoding='utf-8') as f:
-                json.dump(surveyor_data, f, ensure_ascii=False, indent=4)
+                json.dump(surveyor_data, f, ensure_ascii=False, indent=4, default=str)
                 if args.verbose:
                     print("Wrote surveyor data to: ", config.PATIENTINPUTsurveyormitochip+"surveyor_"+cid+".json")
         # NB: There are 699 patients with surveyor and mitochip and clinical data.
         # There are 772 mitochip/clinical pairs, 741 surveyor/clinical, 72 only mitochip/clinical, 42 only syrveyor/clinical
     return 0
 #
+# RETROFISHER DATA
+def build_retrofisher_json():
+    ''' This function parses the RUN folder of Ion Proton and Ion 5XL Angers Hospital
+        retroadata.
+        No input. Path to the files can be found in the config.py
+        Returns nothing but prints a json per sample-analysis, containing clinical, technical info.
+    '''
+    ##################
+    # Get and format identifiers: samples is an array of dicts containing ids,
+    # tissue and haplorype information
+    runfolder = config.IONTHERMO
+    run_list = glob.glob(runfolder+"MITO_*/*")
+    # sort list
+    run_list = sorted(run_list)
+    # debugging typos and new key words
+    run_list = run_list[30:31]
+
+    for run in run_list:
+        print("\n\n\n################ Processing RUN: ", run)
+        #####################
+        # Finding recap file
+        recap_file = utilitary.get_recap_file(run)
+        #######################################
+        # Obtaining sample ids from recap file
+        samples = utilitary.get_ionthermo_id(recap_file, "retrofisher-recap")
+        #############################
+        # Obtain entire patient data
+        # Multithreading -> within run
+        if args.threads:
+            pool = mp.Pool(args.threads)
+            pool.starmap(build_retrofisher_jsons_in_a_run, [(s, run) for s in samples])
+            pool.close()
+        else:
+           for s in samples:
+               build_retrofisher_jsons_in_a_run(s, run)
+#
+def build_retrofisher_jsons_in_a_run(s, run):
+    ''' Function to be parallalized
+    '''
+    sample_id = str(s['sample_id'])
+    sample_file = glob.glob(run+"/**/"+sample_id+"*.xls")
+    if len(sample_file) == 1:
+        pass
+    elif len(sample_file) == 0:
+        print(inspect.stack()[0][3],": No files with appropriate sample id found in run : ", sample_id, run)
+        exit()
+    else:
+        print(inspect.stack()[0][3],": More than one file with the sample id found in run: ", sample_id, run)
+    sample_file = sample_file[0]
+    if args.verbose:
+        print("\t\t\t#### Processing: ", sample_file)
+
+    ###############
+    # Build jsons
+    clinical_info = build_clinical_json(sample_id, args.type+":"+run)
+    sample_info = build_sample_json(sample_id, args.type+":"+run)
+    sequencing_info = build_sequencing_json(sample_id, args.type+":"+run)
+
+    retrofisher_data = {**clinical_info, **sample_info, **sequencing_info}
+
+    ###############
+    # Output jsons
+    runterm = str(os.path.basename(os.path.normpath(run))).replace(" ", "") # get name of the run
+    #
+    # Create directory
+    dirpath = config.PATIENTINPUTretrofisher+runterm+"/"
+    isExist = os.path.exists(dirpath)
+    if not isExist:
+        os.makedirs(dirpath)
+    #
+    # Write JSONS
+    with open(dirpath+str(sample_id)+"_"+runterm+".json", 'w', encoding='utf-8') as f:
+        json.dump(retrofisher_data, f, ensure_ascii=False, indent=4, default=str)
+        if args.verbose:
+            print("\t\t\t#### Wrote retrofisher data to: ", config.PATIENTINPUTretrofisher+str(sample_id)+"_"+runterm+".json")
+#
+# COMMON METHODS
 def get_stats(clinical_identifiers, surveyor_identifiers, mitochip_identifiers):
     ''' Run stats on stic identifiers
         Input three arrays of identifiers (clinical, surveyor, mitochip)
@@ -215,10 +294,21 @@ def build_clinical_json(patid, source):
         file = file[0]
         book = xlrd.open_workbook(file)
         sheet = book.sheet_by_index(0) # sheet containing patient info
-        nom = (sheet.cell(rowx=0,colx=1).value).upper()
-        prenom = (sheet.cell(rowx=1,colx=1).value).upper()
-        name = utilitary.format_patient_name(nom, prenom)
-        patient_id = utilitary.format_patient_id(nom, prenom, sample_id)
+        # name and surname is retrieved from the GLIMS file
+        #nom = sheet.cell(rowx=0,colx=1).value
+        #prenom = sheet.cell(rowx=1,colx=1).value
+        #try:
+        #    nom = nom.upper()
+        #    prenom = prenom.upper()
+        #except:
+        #    print("Warning: name issue, can't uppercase ", sample_id)
+        # optional, to later check that the G: xls name and surname
+        # are the same as the glims extraction
+        info = utilitary.retrieve_glims_info(sample_id, 'all')
+        name = utilitary.format_patient_name(info['nom'], ['prenom'])
+        # patient id is like surname-name-dob,
+        patient_id = utilitary.format_patient_id(sample_id)
+        sex = info['sex']
 
     # fill in frame
     clinical = {
@@ -332,11 +422,11 @@ def build_sample_json(patid, source):
         laboratory_of_reference = 3
         # actually date of analysis, but it's roughly within two months of sampling
 
-        date = utilitary.get_date_recapfile(sheet) #str(sheet.cell(rowx=36,colx=2).value).split()[0]
-        date_of_sampling = utilitary.format_datetime(date, sample_id)
-        # age_at_sampling = utilitary.get_age_at_sampling(date_of_sampling, date_of_birth) # neither info or function exists yet
+        info = utilitary.retrieve_glims_info(sample_id, 'all') #str(sheet.cell(rowx=36,colx=2).value).split()[0]
+        date_of_sampling = info['date_of_sampling']
+        age_at_sampling = utilitary.get_age_at_sampling(date_of_sampling, info['date_of_birth']) # neither info or function exists yet
         tissue = (sheet.cell(rowx=3,colx=1).value).lower()
-        tissue = utilitary.translate_tissue(tissue)
+        tissue = utilitary.translate_tissue(tissue, sample_id)
         type = 'index-thermo'
         data_handler = 'abodrug'
         data_handler_email = 'alexandrina.bodrug@chu-angers.fr'
@@ -492,7 +582,7 @@ def build_sequencing_json(patid, source):
         book = xlrd.open_workbook(file)
         sheet = book.sheet_by_index(0)
         date = utilitary.get_date_recapfile(sheet) # str(sheet.cell(rowx=36,colx=2).value).split()[0]
-        analysis_date = utilitary.format_datetime(date, sample_id)
+        analysis_date = utilitary.format_datetime(date, sample_id, 'euro')
         catalog = utilitary.get_retrofisher_catalog(file)
 
     # Fill in frame
@@ -511,66 +601,6 @@ def build_sequencing_json(patid, source):
 
     return sequencinginfo
 #
-# RETROFISHER DATA
-def build_retrofisher_json():
-    ''' This function parses the RUN folder of Ion Proton and Ion 5XL Angers Hospital
-        retroadata.
-        No input. Path to the files can be found in the config.py
-        Returns nothing but prints a json per sample-analysis, containing clinical, technical info.
-    '''
-    ##################
-    # Get and format identifiers: samples is an array of dicts containing ids,
-    # tissue and haplorype information
-    runfolder = config.IONTHERMO
-    run_list = glob.glob(runfolder+"MITO_*/*")
-    for run in run_list:
-        print("\n\n\n################ Processing RUN: ", run)
-        #####################
-        # Finding recap file
-        recap_file = utilitary.get_recap_file(run)
-        #######################################
-        # Obtaining sample ids from recap file
-        samples = utilitary.get_ionthermo_id(recap_file, "retrofisher-recap")
-        #############################
-        # Obtain entire patient data
-        # Multithreading -> within run
-        pool = mp.Pool(mp.cpu_count())
-        pool.starmap(build_retrofisher_jsons_in_a_run, [(s, run) for s in samples])
-        pool.close()
-
-#
-def build_retrofisher_jsons_in_a_run(s, run):
-    ''' Function to be parallalized
-    '''
-    sample_id = str(s['sample_id'])
-    sample_file = glob.glob(run+"/**/"+sample_id+"*.xls")
-    if len(sample_file) == 1:
-        pass
-    elif len(sample_file) == 0:
-        print(inspect.stack()[0][3],": No files with appropriate sample id found in run : ", sample_id, run)
-        exit()
-    else:
-        print(inspect.stack()[0][3],": More than one file with the sample id found in run: ", sample_id, run)
-    sample_file = sample_file[0]
-    if args.verbose:
-        print("\t\t\tProcessing: ", sample_file)
-
-    ###############
-    # Build jsons
-    clinical_info = build_clinical_json(sample_id, args.type+":"+run)
-    sample_info = build_sample_json(sample_id, args.type+":"+run)
-    sequencing_info = build_sequencing_json(sample_id, args.type+":"+run)
-
-    retrofisher_data = {**clinical_info, **sample_info, **sequencing_info}
-
-    ###############
-    # Output jsons
-    runterm = str(os.path.basename(os.path.normpath(run))).replace(" ", "") # get name of the run
-    #
-    with open(config.PATIENTINPUTretrofisher+str(sample_id)+"_"+runterm+".json", 'w', encoding='utf-8') as f:
-        json.dump(retrofisher_data, f, ensure_ascii=False, indent=4)
-        if args.verbose:
-            print("Wrote retrofisher data to: ", config.PATIENTINPUTretrofisher+str(sample_id)+"_"+runterm+".json")
 
 ########
 # main #
@@ -578,6 +608,10 @@ def build_retrofisher_jsons_in_a_run(s, run):
 if __name__ == "__main__":
     print("Processing start.")
     print("Number of processors: ", mp.cpu_count())
+    nbproc = 1
+    if args.threads:
+        nbproc = args.threads
+    print("Using ", nbproc, " processors.")
     if args.type == 'stic':
         print("\t###You requested building a MitoMatcherDB compatible .json from the:\n\t\tBannwarth et al. 2012 dataset.")
         print("\t###Good luck soldier, these treachearous file formats will be the end of us. Brace.")
