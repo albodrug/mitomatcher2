@@ -1,6 +1,6 @@
 ## mitomatcher2 synopsis
 
-Test1
+Test2
 
 These script compilation will enable you to recreate the MitoMatcherDB. It comes with four main scripts:
 -	create_mmdb : creates the MitoMatcherDB architecture and adds metadata.
