@@ -23,7 +23,7 @@ STICMITOCHIPxls='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/stic/MITOCHIP'
 
 # raw data retro Ion Proton and Ion 5S XL Systems
 IONTHERMO='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/thermofisher_runs/'
-GLIMSINFOfile='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/thermofisher_runs/GLIMS/GLIMS_extraction-01012016-30122021.xls'
+GLIMSINFOfile='/home/abodrug/mitomatcher2_dev/MMDB_RAWDATA/thermofisher_runs/GLIMS/GLIMS_extraction-01012008-30122021.xls'
 
 # MitoMatcherDB input
 METADATA='/home/abodrug/mitomatcher2_dev/input/metadata/'

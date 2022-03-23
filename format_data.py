@@ -46,6 +46,7 @@ p = ap.ArgumentParser()
 p.add_argument("-t", "--type", required=True, choices=['stic','mdenis','genbank', "retrofisher"])
 p.add_argument("-v", "--verbose", required=False, default=False, action='store_true')
 p.add_argument("-n", "--threads", required=False, type=int)
+p.add_argument("-r", "--run", required=False, type=int, default=0) # run index from which to compute
 args = p.parse_args()
 
 #############
@@ -123,10 +124,10 @@ def build_retrofisher_json():
     # sort list
     run_list = sorted(run_list)
     # debugging typos and new key words
-    run_list = run_list[30:31]
-
-    for run in run_list:
-        print("\n\n\n################ Processing RUN: ", run)
+    run_list = run_list #[30:31]
+    for i in range(args.run, len(run_list)):
+        run = run_list[i]
+        print("\n\n\n################ Processing RUN: ", run, "(",i,")")
         #####################
         # Finding recap file
         recap_file = utilitary.get_recap_file(run)
@@ -148,7 +149,7 @@ def build_retrofisher_jsons_in_a_run(s, run):
     ''' Function to be parallalized
     '''
     sample_id = str(s['sample_id'])
-    sample_file = glob.glob(run+"/**/"+sample_id+"*.xls")
+    sample_file = glob.glob(run+"/**/*"+sample_id+"*.xls")
     if len(sample_file) == 1:
         pass
     elif len(sample_file) == 0:
@@ -158,13 +159,25 @@ def build_retrofisher_jsons_in_a_run(s, run):
         print(inspect.stack()[0][3],": More than one file with the sample id found in run: ", sample_id, run)
     sample_file = sample_file[0]
     if args.verbose:
-        print("\t\t\t#### Processing: ", sample_file)
+        print("\t\t\t#### Processing SAMPLE: ", sample_file)
 
     ###############
     # Build jsons
-    clinical_info = build_clinical_json(sample_id, args.type+":"+run)
-    sample_info = build_sample_json(sample_id, args.type+":"+run)
-    sequencing_info = build_sequencing_json(sample_id, args.type+":"+run)
+    try:
+        clinical_info = build_clinical_json(sample_id, args.type+":"+run)
+    except:
+        print("Failed to build clinical json.")
+        exit()
+    try:
+        sample_info = build_sample_json(sample_id, args.type+":"+run)
+    except:
+        print("Failed to build sample json.")
+        exit()
+    try:
+        sequencing_info = build_sequencing_json(sample_id, args.type+":"+run)
+    except:
+        print("Failed to build sequencing json.")
+        exit()
 
     retrofisher_data = {**clinical_info, **sample_info, **sequencing_info}
 
@@ -283,6 +296,7 @@ def build_clinical_json(patid, source):
         # have the same sample_ids
         #
         file = glob.glob(runfolder + "/**/*"+sample_id+"*.xls", recursive = True)
+        #
         if len(file) == 1:
             pass
         elif len(file) == 0:
@@ -305,12 +319,18 @@ def build_clinical_json(patid, source):
         # optional, to later check that the G: xls name and surname
         # are the same as the glims extraction
         info = utilitary.retrieve_glims_info(sample_id, 'all')
-        name = utilitary.format_patient_name(info['nom'], ['prenom'])
+        name = utilitary.format_patient_name(info['nom'], info['prenom'])
         # patient id is like surname-name-dob,
         patient_id = utilitary.format_patient_id(sample_id)
         sex = info['sex']
+        #
+        # Retrieve data from clinical pdf file of retro fisher samples
+        #age_of_onset = pdfparsing.get_age_of_onset_from_phenopdf(sample_id)
+        #cosanguinity = pdfparsing.get_cosanguinity_from_phenopdf(sample_id)
+        #hpoterms, orpha, ordo = pdfparsing.get_ontologies_from_phenopdf(sample_id)
 
     # fill in frame
+
     clinical = {
         'Clinical' : {
             'name' : name,
@@ -416,13 +436,16 @@ def build_sample_json(patid, source):
             exit()
         file = file[0]
         book = xlrd.open_workbook(file)
-        sheet = book.sheet_by_index(0)
+        sheet = book.sheet_by_name('Résumé  analyse')
         sample_id_in_lab = sample_id
         laboratory_of_sampling = 3
         laboratory_of_reference = 3
         # actually date of analysis, but it's roughly within two months of sampling
-
-        info = utilitary.retrieve_glims_info(sample_id, 'all') #str(sheet.cell(rowx=36,colx=2).value).split()[0]
+        try:
+            info = utilitary.retrieve_glims_info(sample_id, 'all') #str(sheet.cell(rowx=36,colx=2).value).split()[0]
+        except:
+            print("Could not retrieve GLIMS info (2).")
+            exit()
         date_of_sampling = info['date_of_sampling']
         age_at_sampling = utilitary.get_age_at_sampling(date_of_sampling, info['date_of_birth']) # neither info or function exists yet
         tissue = (sheet.cell(rowx=3,colx=1).value).lower()
@@ -431,7 +454,10 @@ def build_sample_json(patid, source):
         data_handler = 'abodrug'
         data_handler_email = 'alexandrina.bodrug@chu-angers.fr'
         if (sheet.cell(rowx=21,colx=0).value).lower() == 'haplogroupe':
-            haplogroup = sheet.cell(rowx=21,colx=1).value
+            haplogroup = sheet.cell(rowx=21,colx=1).value # sometimes patients don't have a haplogroup
+            if haplogroup != "":
+                haplogroup = haplogroup.replace("Haplogroup = ", "")
+                haplogroup = haplogroup.split()[0]
     # Filling in frame
     sampleinfo = {
         'Sample' : {
@@ -580,7 +606,11 @@ def build_sequencing_json(patid, source):
             exit()
         file = file[0]
         book = xlrd.open_workbook(file)
-        sheet = book.sheet_by_index(0)
+        try:
+            sheet = book.sheet_by_name('Résumé  analyse')
+        except ValueError:
+            print("Issue with sheet retrieval, 'Résumé analyse'.")
+            exit()
         date = utilitary.get_date_recapfile(sheet) # str(sheet.cell(rowx=36,colx=2).value).split()[0]
         analysis_date = utilitary.format_datetime(date, sample_id, 'euro')
         catalog = utilitary.get_retrofisher_catalog(file)

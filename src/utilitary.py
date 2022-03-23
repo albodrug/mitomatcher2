@@ -6,10 +6,13 @@
 # This script contains functions that are broadly used by main MitoMatcher scripts.
 # Not intended to run as stand alone
 import os
+import re
 import sys
 import glob
 import pymysql
 import xlrd
+import datetime
+import inspect
 #
 import config
 #
@@ -118,6 +121,56 @@ def executeinsert(insert, cursor):
         print(bcolors.WARNING + "[i]SQL insertion failed (did you perform a check on wether the entry exists already?)." + bcolors.ENDC)
         print(bcolors.BOLD + bcolors.WARNING + insert + bcolors.ENDC)
 #
+def check_if_json_in_database(database, samplejson, encrypted):
+    ''' Checks if json was already inserted into database
+        Input: database, json
+        Output: true or false
+    '''
+    status = True # default is true, present in database
+    # i need proof to change the status to false
+    cursor = database.cursor()
+    # sample id and analysis date determine if json should be inserted
+    sample = samplejson['Sample']
+    sample_id_in_lab = sample['sample_id_in_lab']
+    analysis = samplejson['Analysis']
+    analysis_date = analysis['analysis_date']
+    analysis_date_formatted = format_datetime(analysis_date, sample_id_in_lab, 'json')
+    # select sample ids from database
+    sqlselect = "SELECT id_sample_in_lab, date_analysis FROM Sample INNER JOIN Analysis WHERE Sample.id_sample = Analysis.id_sample;"
+    list = executeselect(sqlselect, cursor) # this is a tuple of sample id / date of analysis
+    list_sample_id_in_lab = []
+    list_analysis_date = []
+    list_sampleanalysisdate = []
+    for el in list:
+        list_sample_id_in_lab.append(el[0])
+        list_analysis_date.append(el[1])
+        list_sampleanalysisdate.append(el[0]+str(el[1]))
+    # when encrypted
+    if encrypted == True:
+        # decrypt ids
+        dekr_list_sample_id_in_lab = []
+        for el in list_sample_id_in_lab:
+            el = el[0] # el is a tuple
+            dekr_el = decrypt(el)
+            dekr_list_sample_id_in_lab.append(dekr_el)
+        # check if json sample id in decrypted list
+        if sample_id_in_lab not in dekr_list_sample_id_in_lab:
+            status = False
+        else:
+            if sample_id_in_lab+str(analysis_date_formatted) not in list_sampleanalysisdate:
+                satus = False
+
+     # when not encrypted
+    elif encrypted == False:
+        if sample_id_in_lab not in list_sample_id_in_lab:
+            status = False
+        else:
+            if sample_id_in_lab+str(analysis_date_formatted) not in list_sampleanalysisdate:
+                satus = False
+    # return status
+    return status
+
+#
 def get_id(file, source):
     ''' Parses files to get patient idientifiers
         Input is file path and file type
@@ -210,13 +263,25 @@ def encrypt(id):
     kryptid = fernet.encrypt(bid)
     return kryptid
 #
-def decrypt(kryptid):
+def decrypt(kryptid, encrypt):
     ''' Decrypts sample id
     '''
-    key = open(config.FERNETKEY, 'rb').read()
-    fernet = Fernet(key)
-    bid = fernet.decrypt(kryptid)
-    id = bid.decode("utf-8")
+    id = ''
+    if encrypt == True:
+        key = open(config.FERNETKEY, 'rb').read()
+        fernet = Fernet(key)
+        # sometimes i input a byte, sometimes a str
+        if not isinstance(kryptid, bytes):
+            kryptid = bytes(kryptid, 'utf-8')
+        # check if i can decrypt
+        try:
+            bid = fernet.decrypt(kryptid)
+        except ValueError:
+            print("Issue with encrypted id:", kryptid)
+            exit()
+        id = bid.decode("utf-8")
+    elif encrypt == False:
+        id = kryptid
     return id
 #
 def areEqual(arr1, arr2):
@@ -252,16 +317,26 @@ def get_ionthermo_id(file, source):
         sheet = book.sheet_by_index(0)
         # check that the xls headers and well ordered and that the script will
         # extract what is needed
-        titles = [sheet.cell(rowx=1,colx=0).value,
-                  sheet.cell(rowx=1,colx=1).value,
-                  sheet.cell(rowx=1,colx=3).value,
-                  sheet.cell(rowx=0,colx=5).value,
-                  sheet.cell(rowx=0,colx=6).value]
+        titles = []
+        if "MITO_2016" not in file and "MITO_2017" not in file:
+            titles = [sheet.cell(rowx=1,colx=0).value,
+                      sheet.cell(rowx=1,colx=1).value,
+                      sheet.cell(rowx=1,colx=3).value,
+                      sheet.cell(rowx=0,colx=5).value,
+                      sheet.cell(rowx=0,colx=6).value]
+        else:
+            titles = [sheet.cell(rowx=1,colx=0).value,
+                      sheet.cell(rowx=1,colx=1).value,
+                      sheet.cell(rowx=1,colx=3).value,
+                      sheet.cell(rowx=0,colx=5).value,
+                      sheet.cell(rowx=0,colx=6).value]
         titles_as_expected = ['Barcode ID', 'Sample Name', 'Haplogroupe', 'Identité du patient', 'Type de prélèvement']
-        if (areEqual(titles, titles_as_expected)):
+        titles_as_expected2 = ['Barcode ID', 'Sample Name', 'Haplogroup', 'Identité du patient', 'Type de prélèvement']
+        if (areEqual(titles, titles_as_expected) or areEqual(titles, titles_as_expected2)):
             pass
         else:
             print("Title of columns in the recap file not as expected.")
+            print(titles)
             exit()
         for row_index in range(2, sheet.nrows):
             vcfbarcode_id = sheet.cell(rowx=row_index,colx=0).value
@@ -269,18 +344,31 @@ def get_ionthermo_id(file, source):
             haplogroup = sheet.cell(rowx=row_index,colx=3).value
             patient_id = sheet.cell(rowx=row_index,colx=5).value
             tissue = sheet.cell(rowx=row_index,colx=6).value
-            if patient_id != '':
+            if patient_id != '' and sample_id != '':
+                if "F" in str(sample_id) or "M" in str(sample_id): # sometimes in the fiche récapitulative
+                    # sample_id has the sex appended like - M or - F
+                    sample_id = str(sample_id).split()[0]
+                    sample_id = str(sample_id).split('-')[0]
+                try:
+                    sample_id = int(sample_id)
+                except:
+                    if "_REPASSE" in sample_id or '_REPLIG':
+                        print("Warning: RERUN/REPLICA, ", sample_id, " in ", file)
+                        sample_id = int(sample_id.split('_')[0])
+                    else:
+                        print("Issue with sample id: ", sample_id)
+                        exit()
+
                 info = { 'vcfbarcode_id': vcfbarcode_id,
-                         'sample_id' : int(sample_id),
+                         'sample_id' : sample_id,
                          'haplogroup': haplogroup,
                          'patient_id': patient_id,
                          'tissue': tissue
                         }
                 arrodict.append(info)
-
     return arrodict
 #
-def translate_tissue(tissue):
+def translate_tissue(tissue, sample_id):
     ''' This function translates french tissue names into
         english tissue names.
     '''
@@ -290,52 +378,154 @@ def translate_tissue(tissue):
     'ADN' : 'DNA',
     'adn' : 'DNA',
     'muscle' : 'muscle',
-    'homogenat' : 'homogenate'
+    'homogenat' : 'homogenate',
+    'fibroblastes' : 'fibroblast',
+    'fibros' : 'fibroblast',
+    'foie' : 'liver'
     }
+    # typos and special fields
+    if 'urine' in tissue:
+        dict[tissue] = 'urine'
+    if 'muscle' in tissue:
+        dict[tissue] = 'muscle'
+    if 'adn' in tissue or 'ADN' in tissue:
+        dict[tissue] = 'ADN'
+    if 'rein' in tissue:
+        dict[tissue] = 'kidney'
+    try:
+        dict[tissue]
+    except:
+        print("Issue with tissue in sample: ", sample_id, "(",tissue,")")
+        exit()
     return dict[tissue]
 #
 def format_patient_name(nom, prenom):
     ''' Function formats nom et prenom to a name that will end up in the .json
         Makes everything uppercase, replaces empty spaces in nom or prenom with underscrores
     '''
-    name = "-".join([str(nom.upper()).replace(" ", "_"), str(prenom.upper()).replace(" ", "_")])
+    try:
+        nom = nom.strip()
+    except:
+        pass
+    try:
+        prenom = prenom.strip()
+    except:
+        pass
+    name = "-".join([str(nom).replace(" ", "_"), str(prenom).replace(" ", "_")])
     return name
 #
-def format_patient_id(nom, prenom, sample_id):
+def format_patient_id(sample_id):
     ''' Function formats nom, prenom and sample_id to create a patient id
         For patients having no patient id (GLIMS?)
     '''
-    name = format_patient_name(nom, prenom)
-    patient_id = "-".join([name, sample_id])
+    #name = format_patient_name(nom, prenom)
+    info = retrieve_glims_info(sample_id, 'all')
+    arr = [info['nom'], info['prenom'], str(info['date_of_birth'])]
+    patient_id = "-".join(arr)
     return patient_id
 #
-def format_datetime(datestring, sample_id):
+def retrieve_glims_info(sample_id, type):
+    ''' Function retrieves data thanks to sample_id
+        and the GLIMs extraction xls.
+        input is sample_id and type which is:
+        date_of_birth, nom, prenom, sex date_of_sampling, or all
+    '''
+    info= {}
+    infofile = config.GLIMSINFOfile
+    book = xlrd.open_workbook(infofile)
+    sheet = book.sheet_by_index(0)
+    # objet_patient is defined outside the loop.
+    # This way, it will keep the former value in cases
+    # where the objt_patient row is empty because a patient had several samplings
+    objet_patient = ''
+    for row_index in range(10,sheet.nrows):
+        # objet patient
+        if sheet.cell(rowx=row_index,colx=1).value != '':
+            objet_patient = sheet.cell(rowx=row_index,colx=1).value
+        # sampling time
+        sampling_time = str(sheet.cell(rowx=row_index,colx=4).value).split()[0]
+        sampling_date = format_datetime(sampling_time, sample_id, 'euro')
+        # sample_id is called dossier in the GLIMS xls
+        dossier = sheet.cell(rowx=row_index,colx=2).value
+        if int(sample_id) == int(dossier):
+            try:
+                nom, prenom_sex, date_of_birth = objet_patient.split(',')
+            except:
+                print("Issue with GLIMs info: ", objet_patient, dossier)
+                exit()
+            try:
+                prenom, sex = prenom_sex.split('(')
+            except:
+                print("Issue with GLIMs info: ", objet_patient, dossier)
+                exit()
+            nom = nom.strip()
+            prenom = prenom.strip()
+            nom = re.sub('[- ]', '_', nom) # replace all non characters with _
+            # this is done to avoid white space and '-' in names
+            prenom = re.sub('[- ]', '_', prenom)
+            sex = sex.replace(')','')
+            datetime = format_datetime(date_of_birth, sample_id, 'euro')
+            info = { 'date_of_birth' : datetime,
+                     'sex' : sex.strip(),
+                     'nom' : nom.strip(),
+                     'prenom' : prenom.strip(),
+                     'date_of_sampling' : sampling_date,
+                   }
+    try:
+        a = info['date_of_birth']
+        b = info['sex']
+        c = info['nom']
+        d = info['prenom']
+        e = info['date_of_sampling']
+    except:
+        print("Issue with info extraction from glims.")
+        print("info", info)
+        print("sample id", sample_id)
+        exit()
+
+    if type == 'all':
+        return info
+    else:
+        return info[type]
+#
+def format_datetime(datestring, sample_id, style):
     ''' Function formats a datastring extracted from a patient xls from a
         Ion Proton or a Ion 5S XL and returns a date with an appropriate
         format to be inserted in the database.
+        Takes in datestring, sample_id and style (euro or us)
     '''
-    date = ''
-    day, month, year = datestring.split('/')
+    # trying to split datestring
+    try:
+        datearr = re.split('[-/]', datestring)
+    except:
+        pass
+    # checking it does indeed contain three parts
+    if len(datearr) != 3:
+        print("Issue with date, it does not have the three items day, month, year: ", datestring, sample_id)
+        exit()
+    # extract day, month and year according to date style
+    day, month, year = [0, 0, 0]
+    if style == 'euro':
+        day, month, year = datearr
+    elif style == 'us':
+        month, day, year = datearr
+    elif style == 'json':
+        year, month, day = datearr
+    # format year correctly
     if len(year) == 4:
         pass
-    elif len(year) == 2:
+    elif len(year) == 2 and int(year)>=8 and int(year)<=22:
         year = "20"+str(year)
     else:
-        print("Issue with date format: ", datestring)
-        print("Trying to rescue sample: ", sample_id)
-        try:
-            datestring = datestring[:-3] # sometimes people forget the space
-            # between the date and their initials in the validations section
-            day, month, year = datestring.split('/')
-        except:
-            print("Rescue failed.")
-            exit()
+        print(inspect.stack()[0][3],": Issue with date format, wrong year input: ", datestring)
+        exit()
+    # delete '0' in front of months and days
     if str(day).startswith('0'):
         day = str(day).replace('0', '')
     if str(month).startswith('0'):
         month = str(month).replace('0', '')
     # format as fullyear-month-day
-    date = str(year)+"-"+month+"-"+day
+    date = datetime.date(int(year), int(month), int(day))
     return date
 #
 def get_retrofisher_catalog(file):
@@ -354,22 +544,39 @@ def get_retrofisher_catalog(file):
     book = xlrd.open_workbook(file)
     for sheet in book.sheets():
         if sheet.name == 'NIOURK':
+            # check xls headers
+            header_nb_calls = str(sheet.cell(rowx=1,colx=45).value)
+            header_type = str(sheet.cell(rowx=2,colx=9).value)
+            if header_nb_calls == "nb call" and header_type == "type":
+                pass
+            else:
+                print("Issue with sample xls headers in NIOURK sheet:")
+                print(sample_id, header_nb_calls, header_type)
+                exit()
             for row_index in range(3, sheet.nrows):
                 # want at least 4 callers
-                nb_calls = int(sheet.cell(rowx=row_index,colx=45).value)
+                try:
+                    nb_calls = int(sheet.cell(rowx=row_index,colx=45).value)
+                except:
+                    print("Issue with nb_calls format: ", nb_calls)
                 # want to exclude frameshirt variants, that are very often artefacts
-                type = sheet.cell(rowx=row_index,colx=9).value
+                try:
+                    type = sheet.cell(rowx=row_index,colx=9).value
+                except:
+                    print("Issue with type format: ", type)
                 # These two criteria were advised by Valerie Desquirez, in order
                 # to retain a list of trustworthy
                 # with the pipeline at Angers Hospital
-                freq_project = float(sheet.cell(rowx=row_index,colx=14).value)
-                if nb_calls > 3 and 'frameshift' not in type and freq_project <=30:
+                if nb_calls > 3 and 'frameshift' not in type:
                     pos = int(sheet.cell(rowx=row_index,colx=1).value) # pos column
                     ref = sheet.cell(rowx=row_index,colx=4).value # ref column
                     alt = sheet.cell(rowx=row_index,colx=5).value # alt column
                     AF = float(sheet.cell(rowx=row_index,colx=12).value) # allele freq
                     heteroplasmy_status = 'HOM'
-                    if AF>2 and AF < 98:
+                    # The pipeline at the CHU d'Angers will rarely give Homoplasmic
+                    # variants because of artefacts, this is why we consider allele
+                    # frequencies above 95 to be homoplasmic
+                    if AF>4 and AF < 96:
                         heteroplasmy_status = 'HET'
 
                     variant = {
@@ -390,14 +597,25 @@ def get_date_recapfile(sheet):
         Input: sheet
         Output: date
     '''
+    dates = []
     for r in range(30,40):
-        try:
-            date = str(sheet.cell(rowx=r,colx=2).value).split()[0]
-            return date
-        except:
-            if r == 39:
-                print("Issue with date.")
-                exit()
+        for c in range(2,4):
+            date = ''
+            try:
+                date = str(sheet.cell(rowx=r,colx=c).value).split()[0]
+            except:
+                pass
+            if '/' in date:
+                dates.append(date)
+    # checks if array of dates is not empty
+    # and deletes characters from it in case
+    # upon entry initials were glued to the date
+    if len(dates) != 0:
+        d = re.sub('A-z', '', dates[0])
+        return d
+    else:
+        print("Issue with date. No date found. (2)")
+        exit()
 #
 def get_recap_file(run):
     ''' Get recap file from a S5 or Proton run
@@ -422,3 +640,9 @@ def get_recap_file(run):
         exit()
     else:
         return recap_file[0]
+#
+def get_age_at_sampling(date_of_birth, date_of_sampling):
+    #d1 = datetime.datetime.strptime(date_of_birth, "%Y-%m-%d")
+    #d2 = datetime.datetime.strptime(date_of_sampling, "%Y-%m-%d")
+    age = int(int(abs((date_of_birth - date_of_sampling).days))/365.25)
+    return age

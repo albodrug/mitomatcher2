@@ -332,12 +332,12 @@ def create_sample_tables(database):
     # if id_sample_in_lab is encrypted, UNIQUE constraint is useless
     instruction = ("CREATE TABLE Sample (\
     id_sample INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
-    id_sample_in_lab VARCHAR(150) NOT NULL, \
+    id_sample_in_lab VARCHAR(500) NOT NULL, \
     tissue VARCHAR(25) NOT NULL, \
-    haplogroup VARCHAR(50), \
+    haplogroup VARCHAR(100), \
     id_labo INT, \
     sample_date DATE, \
-    age_at_samping INT, \
+    age_at_sampling INT, \
     UNIQUE(id_sample_in_lab, tissue, sample_date), \
     CONSTRAINT fk_id_labo_laboratory FOREIGN KEY (id_labo) REFERENCES Laboratory(id_labo) ON UPDATE CASCADE, \
     type VARCHAR(25) \
@@ -369,7 +369,7 @@ def create_sample_tables(database):
     # a clinic is unique, but can have several associated sammples
     instruction = ("CREATE TABLE Clinic ( \
     id_patient INT PRIMARY KEY NOT NULL AUTO_INCREMENT, \
-    id_patient_in_lab VARCHAR(125) UNIQUE, \
+    id_patient_in_lab VARCHAR(500) UNIQUE, \
     sex VARCHAR(10), \
     age_of_onset VARCHAR(50), \
     cosanguinity VARCHAR(10) \
@@ -427,7 +427,7 @@ def create_analysis_tables(database):
     CONSTRAINT fk_id_tech FOREIGN KEY (id_tech) REFERENCES Technique(id_tech) ON UPDATE CASCADE, \
     id_user VARCHAR(25), \
     CONSTRAINT fk_user_analysis FOREIGN KEY (id_user) REFERENCES User(id_user), \
-    UNIQUE(id_sample, id_tech) \
+    UNIQUE(id_sample, id_tech, date_analysis) \
     ) ENGINE=INNODB;")
     utilitary.executesqlinstruction(instruction, cursor)
     # Variant_Call Table
@@ -458,6 +458,6 @@ if __name__ == "__main__":
         create_db(database)
     if args.addmeta :
         print("Add metadata (Users, Techniques, Laboratories, Ontologies). Get ready for the ride.")
-        password = 'Mimas' #getpass.getpass()
+        password = config.PWDADMIN #getpass.getpass()
         database = utilitary.connect2databse(str(password))
         add_dbmetadata(database)

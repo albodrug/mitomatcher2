@@ -27,16 +27,18 @@ for el in sys.argv:
     if el in ["-h", "--help", "-help", "getopt", "usage"]:
         sys.exit('''
         -t  --type  :   Type of data to format. Each dataset has its own formats and has to be parsed separately.
-                        choices "[stic, mdenis, genbank]"
+                        choices "[stic, mdenis, genbank, retrofisher]"
         -v  --verbose : Make script verbose.
+        -y  --encrypt : Encrypt data upon insetion into the database (sample_id and patient_id). [default: True]
         ''')
 
 ###################
 # argument parser #
 ###################
 p = ap.ArgumentParser()
-p.add_argument("-t", "--type", required=True, choices=['stic','mdenis','genbank'])
+p.add_argument("-t", "--type", required=True, choices=['stic','mdenis','genbank', 'retrofisher'])
 p.add_argument("-v", "--verbose", required=False, default=False, action='store_true')
+p.add_argument("-y", "--encrypt", required=False, default=True, action='store_false')
 args = p.parse_args()
 
 #############
@@ -44,7 +46,7 @@ args = p.parse_args()
 #############
 #
 def insert_stic(database):
-    ''' This is the description of the function.
+    ''' Inserts stic data into database.
         Takes in: database
         Returns: nothing
     '''
@@ -60,42 +62,100 @@ def insert_stic(database):
     input_files = glob.glob(config.PATIENTINPUTsurveyormitochip+"*.json")
     for file in input_files:
         samplejson = json.load(open(file))
-        if args.verbose:
-            print("Parsing:", file)
-            input("Press Enter to insert sample data.")
-        ######################
-        # insert into tables Sample, Sample_Ontology
-        sample = samplejson['Sample']
-        id_sample = insert_sample(database, sample)
+        # checking if it doesn't already exist in database
+        exists_in_database = utilitary.check_if_json_in_database(database, samplejson, args.encrypt)
+        # only insert in database if sample not already in database
+        if not exists_in_database :
+            if args.verbose:
+                print("Parsing:", file)
+                input("Press Enter to insert sample data.")
+            ######################
+            # insert into tables Sample, Sample_Ontology
+            sample = samplejson['Sample']
+            id_sample = insert_sample(database, sample)
 
-        if args.verbose:
-            input("Press Enter to insert ontology data.")
-        #######################
-        # insert into tables Sample_Ontology
-        ontology = samplejson['Ontology']
-        insert_ontology(database, ontology, id_sample)
+            if args.verbose:
+                input("Press Enter to insert ontology data.")
+            #######################
+            # insert into tables Sample_Ontology
+            ontology = samplejson['Ontology']
+            insert_ontology(database, ontology, id_sample)
 
-        if args.verbose:
-            input("Press Enter to insert clinical data.")
-        #######################
-        # insert into tables Clinic, Sample_Clinic
-        clinic = samplejson['Clinical']
-        insert_clinic(database, clinic, id_sample)
+            if args.verbose:
+                input("Press Enter to insert clinical data.")
+            #######################
+            # insert into tables Clinic, Sample_Clinic
+            clinic = samplejson['Clinical']
+            insert_clinic(database, clinic, id_sample)
 
-        if args.verbose:
-            input("Press Enter to insert variant data.")
-        #######################
-        # insert into tables Variant, Gene_Variant
-        catalog = samplejson['Catalog']
-        insert_catalog(database, catalog)
+            if args.verbose:
+                input("Press Enter to insert variant data.")
+            #######################
+            # insert into tables Variant, Gene_Variant
+            catalog = samplejson['Catalog']
+            insert_catalog(database, catalog)
 
-        if args.verbose:
-            input("Press Enter to insert analysis data.")
-        #######################
-        # insert into tables Analysis, Variant_Call
-        analysis = samplejson['Analysis']
-        insert_analysis(database, catalog, analysis, id_sample, sample)
+            if args.verbose:
+                input("Press Enter to insert analysis data.")
+            #######################
+            # insert into tables Analysis, Variant_Call
+            analysis = samplejson['Analysis']
+            insert_analysis(database, catalog, analysis, id_sample, sample)
+        else:
+            if args.verbose:
+                print("json was already inserted into database:", file)
+    return 0
+#
+def insert_retrofisher(database):
+    ''' Inserts retrospective Proton and S5 ThermoFisher runs into database
+        In: database
+        Out: nothing
+    '''
+    input_files = glob.glob(config.PATIENTINPUTretrofisher+"*MITO*/*.json")
+    for file in input_files:
+        samplejson = json.load(open(file))
+        # checking if it doesn't already exist in database
+        exists_in_database = utilitary.check_if_json_in_database(database, samplejson, args.encrypt)
+        # only insert in database if sample not already in database
+        if not exists_in_database :
+            if args.verbose:
+                print("Parsing:", file)
+                input("Press Enter to insert sample data.")
+            ######################
+            # insert into tables Sample, Sample_Ontology
+            sample = samplejson['Sample']
+            id_sample = insert_sample(database, sample)
 
+            if args.verbose:
+                input("Press Enter to insert ontology data.")
+            #######################
+            # insert into tables Sample_Ontology
+            ontology = samplejson['Ontology']
+            insert_ontology(database, ontology, id_sample)
+
+            if args.verbose:
+                input("Press Enter to insert clinical data.")
+            #######################
+            # insert into tables Clinic, Sample_Clinic
+            clinic = samplejson['Clinical']
+            insert_clinic(database, clinic, id_sample)
+
+            if args.verbose:
+                input("Press Enter to insert variant data.")
+            #######################
+            # insert into tables Variant, Gene_Variant
+            catalog = samplejson['Catalog']
+            insert_catalog(database, catalog)
+
+            if args.verbose:
+                input("Press Enter to insert analysis data.")
+            #######################
+            # insert into tables Analysis, Variant_Call
+            analysis = samplejson['Analysis']
+            insert_analysis(database, catalog, analysis, id_sample, sample)
+        else:
+            if args.verbose:
+                print("json was already inserted into database:", file)
     return 0
 #
 def insert_sample(database, sample):
@@ -109,8 +169,10 @@ def insert_sample(database, sample):
     #########################
     # encrypt id_sample_in_lab
     id = sample['sample_id_in_lab']
-    kryptid = encrypt(id)
-    encrypted_id_for_database=str(kryptid)[2:-1]
+    encrypted_id_for_database = id
+    if args.encrypt == True:
+        kryptid = utilitary.encrypt(id)
+        encrypted_id_for_database=kryptid.decode("utf-8")
 
     #############################
     # insert into ############################################################# Sample
@@ -130,7 +192,7 @@ def insert_sample(database, sample):
     for k in kr_ids:
         bk = bytes(str(k[0]),'utf-8') # adding the b' and ' and the end
         try:
-            id = decrypt(bk)
+            id = utilitary.decrypt(bk, args.encrypt)
         except:
             print("warning: Wrongly encrypted token?:", bk)
         if id not in dekr_ids:
@@ -146,10 +208,10 @@ def insert_sample(database, sample):
         id_sample_index = dekr_ids[sample['sample_id_in_lab']] # the function returns this
     else:
         try:
-            sqlinsert = ("INSERT INTO Sample (id_sample_in_lab, tissue, haplogroup, id_labo, sample_date, type) " \
+            sqlinsert = ("INSERT INTO Sample (id_sample_in_lab, tissue, haplogroup, id_labo, sample_date, type, age_at_sampling) " \
             "VALUES (" + ",".join(['"'+str(encrypted_id_for_database)+'"', '"'+sample['tissue']+'"', \
             '"'+sample['haplogroup']+'"',str(sample['laboratory_of_sampling']), \
-            '"'+sample['date_of_sampling']+'"','"'+sample['type']+'"']) \
+            '"'+sample['date_of_sampling']+'"','"'+sample['type']+'"','"'+str(sample['age_at_sampling'])+'"']) \
             +");")
             utilitary.executeinsert(sqlinsert, cursor)
             database.commit()
@@ -209,8 +271,10 @@ def insert_clinic(database, clinic, id_sample):
 
     # encrypt id_patient_in_lab
     patient_id_in_lab = clinic['patient_id']
-    kryptid = encrypt(patient_id_in_lab)
-    encrypted_id_for_database=str(kryptid)[2:-1]
+    encrypted_id_for_database = patient_id_in_lab
+    if args.encrypt == True:
+        kryptid = utilitary.encrypt(patient_id_in_lab)
+        encrypted_id_for_database=str(kryptid)[2:-1]
 
     # check if patient already exists in database
     sqlselect = "SELECT id_patient_in_lab FROM Clinic;"
@@ -219,7 +283,7 @@ def insert_clinic(database, clinic, id_sample):
     for el in krypt_ids:
         kr = el[0]
         bkr = bytes(str(kr), 'utf-8')
-        dekr = decrypt(bkr)
+        dekr = utilitary.decrypt(bkr, args.encrypt)
         kr_dekr_ids[dekr] = kr
     # if patient not in database
     if patient_id_in_lab not in kr_dekr_ids.keys():
@@ -363,24 +427,6 @@ def insert_analysis(database, catalog, analysis, id_sample, sample):
         database.commit()
 
     return 0
-#
-def encrypt(id):
-    ''' Encrypts sample id before insertion into mmdb2
-    '''
-    bid = bytes(id, 'utf-8')
-    key = open(config.FERNETKEY, 'rb').read()
-    fernet = Fernet(key)
-    kryptid = fernet.encrypt(bid)
-    return kryptid
-#
-def decrypt(kryptid):
-    ''' Decrypts sample id
-    '''
-    key = open(config.FERNETKEY, 'rb').read()
-    fernet = Fernet(key)
-    bid = fernet.decrypt(kryptid)
-    id = bid.decode("utf-8")
-    return id
 ########
 # main #
 ########
@@ -388,10 +434,15 @@ def decrypt(kryptid):
 # delete from Sample_Clinic; delete from Sample_Ontology;
 # delete from Variant_Call; delete from Analysis;
 # delete from Sample; delete from Gene_Variant; delete from Variant;
-# delete from Clinic
+# delete from Clinic;
 if __name__ == "__main__":
     if args.type == 'stic':
-        print("Insertion into database initiated. Put on your safety gear and brace.")
+        print("Insertion into database initiated. Put on your safety gear and brace: STIC")
         password = config.PWDADMIN  #getpass.getpass()
         database = utilitary.connect2databse(str(password))
         insert_stic(database)
+    if args.type == 'retrofisher':
+        print("Insertion into database initiated. Put on your safety gear and brace: retrospective ThermoFisher")
+        password = config.PWDADMIN  #getpass.getpass()
+        database = utilitary.connect2databse(str(password))
+        insert_retrofisher(database)

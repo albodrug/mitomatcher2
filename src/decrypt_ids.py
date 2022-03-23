@@ -114,6 +114,6 @@ def similar(a, b):
 ########
 if __name__ == "__main__":
     print("Checking the unicity of ids in Sample and Clinic table.")
-    password = 'Mimas' #getpass.getpass()
+    password = config.PWDADMIN
     database = utilitary.connect2databse(str(password))
     ids = check_Sample_table(database)
