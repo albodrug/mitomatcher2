@@ -1,5 +1,7 @@
 ## mitomatcher2 synopsis
 
+Test1
+
 These script compilation will enable you to recreate the MitoMatcherDB. It comes with four main scripts:
 -	create_mmdb : creates the MitoMatcherDB architecture and adds metadata.
 -	format_data : provides a certain number of methods to transform excel, pdf or vcf files into MitoMatcher compatible .json files
