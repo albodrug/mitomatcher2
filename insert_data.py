@@ -184,20 +184,24 @@ def insert_sample(database, sample):
     " id_labo="+str(sample['laboratory_of_sampling']) + \
     " AND sample_date="+"'"+str(sample['date_of_sampling'])+"'"+ \
     " AND type="+"'"+str(sample['type'])+"'"+ \
-    " AND haplogroup="+'"'+str(sample['haplogroup'])+'"'+ \
     ";")
     kr_ids = utilitary.executeselect(sqlselect, cursor) # tuple
     kr_ids_dekr_ids = {} # correspondance crypted and decrypted ids
     # gather decrypted ids, kryptid[0][2:-1]-> getting rid of byte chars in the str
     for k in kr_ids:
-        bk = bytes(str(k[0]),'utf-8') # adding the b' and ' and the end
+        bk = k[0]
+        if args.encrypt:
+            bk = bytes(str(k[0]),'utf-8') # adding the b' and ' and the end, if encryption is activated
         try:
             id = utilitary.decrypt(bk, args.encrypt)
         except:
             print("warning: Wrongly encrypted token?:", bk)
         if id not in dekr_ids:
             dekr_ids[id] = k[1]
+            #print(id, k[1])
+            #print(dekr_ids)
             kr_ids_dekr_ids[k[0]] = id
+    #print(sample['sample_id_in_lab'])
     #############################
     # check if sample already in database, if not insert it
     if sample['sample_id_in_lab'] in dekr_ids.keys():
@@ -226,11 +230,11 @@ def insert_sample(database, sample):
             id_sample_index = query_result[0][0]
         except:
             print("Warning: Could not insert into or select from Sample:", sample['sample_id_in_lab'])
-            exit()
+            #exit()
 
     return id_sample_index
 #
-def insert_ontology(datavase, ontology, id_sample):
+def insert_ontology(database, ontology, id_sample):
     ''' Insert into Sample_Ontology.
         Returns nothing, modifies the database.
     '''
@@ -382,14 +386,18 @@ def insert_analysis(database, catalog, analysis, id_sample, sample):
     sqlselect = ("SELECT id_user FROM User WHERE mail='"+str(user_mail)+"';")
     id_user = utilitary.executeselect(sqlselect, cursor)[0][0]
 
+
     # select, insert into Analysis
     sqlselect = ("SELECT id_analysis FROM Analysis WHERE "+ \
     "id_tech="+str(id_tech)+ \
     " AND id_sample="+str(id_sample)+ \
+    " AND date_analysis='"+str(analysis_date)+"'"+ \
     ";")
+    #
     sqlinsert = ("INSERT INTO Analysis (date_analysis, id_sample, id_tech, id_user) VALUES ("+\
     ",".join(["'"+str(analysis_date)+"'", "'"+str(id_sample)+"'", "'"+str(id_tech)+"'", "'"+str(id_user)+"'"]) + \
     ");")
+    # remember, there is an unicity requirement on uniq(id_sample, id_tech, date_analysis)
     utilitary.executeinsert(sqlinsert, cursor)
     database.commit()
     # get analysis id

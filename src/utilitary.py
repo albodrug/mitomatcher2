@@ -144,7 +144,7 @@ def check_if_json_in_database(database, samplejson, encrypted):
     for el in list:
         list_sample_id_in_lab.append(el[0])
         list_analysis_date.append(el[1])
-        list_sampleanalysisdate.append(el[0]+str(el[1]))
+        list_sampleanalysisdate.append(el[0]+"-"+str(el[1]))
     # when encrypted
     if encrypted == True:
         # decrypt ids
@@ -165,9 +165,10 @@ def check_if_json_in_database(database, samplejson, encrypted):
         if sample_id_in_lab not in list_sample_id_in_lab:
             status = False
         else:
-            if sample_id_in_lab+str(analysis_date_formatted) not in list_sampleanalysisdate:
-                satus = False
+            if sample_id_in_lab+"-"+str(analysis_date_formatted) not in list_sampleanalysisdate:
+                status = False
     # return status
+    #print(sample_id_in_lab, analysis_date, status)
     return status
 
 #
