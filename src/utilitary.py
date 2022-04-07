@@ -37,7 +37,7 @@ def connect2databse(password):
     Outputs database.
     '''
     try:
-        database = pymysql.connect(db='mitomatcher2', user='mito_admin', passwd=password)
+        database = pymysql.connect(db='mitomatcher2', user= config.USERADMIN, passwd=password)
     except:
         print(bcolors.FAIL + "Cannot connect to database." + bcolors.ENDC)
         sys.exit()
@@ -141,34 +141,39 @@ def check_if_json_in_database(database, samplejson, encrypted):
     list_sample_id_in_lab = []
     list_analysis_date = []
     list_sampleanalysisdate = []
-    for el in list:
-        list_sample_id_in_lab.append(el[0])
-        list_analysis_date.append(el[1])
-        list_sampleanalysisdate.append(el[0]+"-"+str(el[1]))
     # when encrypted
     if encrypted == True:
+        for el in list:
+            list_sample_id_in_lab.append(el[0])
+            list_analysis_date.append(el[1])
+            dekr_el = decrypt(el[0], encrypted)
+            list_sampleanalysisdate.append(dekr_el+"-"+str(el[1]))
         # decrypt ids
         dekr_list_sample_id_in_lab = []
         for el in list_sample_id_in_lab:
-            el = el[0] # el is a tuple
-            dekr_el = decrypt(el)
+            dekr_el = decrypt(el, encrypted)
+            #print(el)
+            #print(dekr_el)
             dekr_list_sample_id_in_lab.append(dekr_el)
         # check if json sample id in decrypted list
         if sample_id_in_lab not in dekr_list_sample_id_in_lab:
             status = False
         else:
-            if sample_id_in_lab+str(analysis_date_formatted) not in list_sampleanalysisdate:
-                satus = False
-
+            if sample_id_in_lab+"-"+str(analysis_date_formatted) not in list_sampleanalysisdate:
+                status = False
      # when not encrypted
     elif encrypted == False:
+        for el in list:
+            list_sample_id_in_lab.append(el[0])
+            list_analysis_date.append(el[1])
+            list_sampleanalysisdate.append(el[0]+"-"+str(el[1]))
         if sample_id_in_lab not in list_sample_id_in_lab:
             status = False
         else:
             if sample_id_in_lab+"-"+str(analysis_date_formatted) not in list_sampleanalysisdate:
                 status = False
     # return status
-    #print(sample_id_in_lab, analysis_date, status)
+    print("sample_id, analysis_date, present_in_db : ",sample_id_in_lab, analysis_date, status)
     return status
 
 #
@@ -345,7 +350,7 @@ def get_ionthermo_id(file, source):
             haplogroup = sheet.cell(rowx=row_index,colx=3).value
             patient_id = sheet.cell(rowx=row_index,colx=5).value
             tissue = sheet.cell(rowx=row_index,colx=6).value
-            if patient_id != '' and sample_id != '':
+            if patient_id != '' and sample_id != '' and patient_id !='/':
                 if "F" in str(sample_id) or "M" in str(sample_id): # sometimes in the fiche récapitulative
                     # sample_id has the sex appended like - M or - F
                     sample_id = str(sample_id).split()[0]
@@ -353,9 +358,31 @@ def get_ionthermo_id(file, source):
                 try:
                     sample_id = int(sample_id)
                 except:
-                    if "_REPASSE" in sample_id or '_REPLIG':
+                    if "_REPASSE" in sample_id or '_REPLIG' in sample_id or 'RepliG' in sample_id:
                         print("Warning: RERUN/REPLICA, ", sample_id, " in ", file)
-                        sample_id = int(sample_id.split('_')[0])
+                        sample_id = sample_id.split('_')[0]
+                        sample_id = sample_id.split('-')[0]
+                        sample_id = int(sample_id)
+                    elif "LONG PCR" in sample_id:
+                        print("Warning: LONG PCR, ", sample_id, " in ", file)
+                        sample_id = sample_id.split('_')[0]
+                        sample_id = sample_id.split('-')[0]
+                        sample_id = int(sample_id)
+                    elif "_QIAGEN" in sample_id:
+                        print("Warning: QUIAGEN, ", sample_id, " in ", file)
+                        sample_id = sample_id.split('_')[0]
+                        sample_id = sample_id.split('-')[0]
+                        sample_id = int(sample_id)
+                    elif "_EZ1" in sample_id:
+                        print("Warning: EZ1, ", sample_id, " in ", file)
+                        sample_id = sample_id.split('_')[0]
+                        sample_id = sample_id.split('-')[0]
+                        sample_id = int(sample_id)
+                    elif "_HAMILTON" in sample_id:
+                        print("Warning: HAMILTON, ", sample_id, " in ", file)
+                        sample_id = sample_id.split('_')[0]
+                        sample_id = sample_id.split('-')[0]
+                        sample_id = int(sample_id)
                     else:
                         print("Issue with sample id: ", sample_id)
                         exit()
@@ -379,10 +406,20 @@ def translate_tissue(tissue, sample_id):
     'ADN' : 'DNA',
     'adn' : 'DNA',
     'muscle' : 'muscle',
+    'muscles' : 'muscle',
     'homogenat' : 'homogenate',
     'fibroblastes' : 'fibroblast',
+    'fibroblaste' : 'fibroblast',
     'fibros' : 'fibroblast',
-    'foie' : 'liver'
+    'fibro' : 'fibroblast',
+    'foie' : 'liver',
+    'ecouvillon' : 'swab',
+    'cellules' : 'cells',
+    'biopsie' : 'biopsy',
+    'salive' : 'saliva',
+    'biopsie foie' : 'liver biopsy',
+    'liquide' : 'liquid',
+    'frottis buccal' : 'buccal smear'
     }
     # typos and special fields
     if 'urine' in tissue:
@@ -599,20 +636,21 @@ def get_date_recapfile(sheet):
         Output: date
     '''
     dates = []
-    for r in range(30,40):
-        for c in range(2,4):
-            date = ''
-            try:
-                date = str(sheet.cell(rowx=r,colx=c).value).split()[0]
-            except:
-                pass
-            if '/' in date:
-                dates.append(date)
+    for r in range(30,40): # row
+        for c in range(2,4): # column
+            for i in range(0,2): # first or second word within cell, in case initials are before date
+                date = ''
+                try:
+                    date = str(sheet.cell(rowx=r,colx=c).value).split()[i]
+                except:
+                    pass
+                if '/' in date:
+                    dates.append(date)
     # checks if array of dates is not empty
     # and deletes characters from it in case
     # upon entry initials were glued to the date
     if len(dates) != 0:
-        d = re.sub('A-z', '', dates[0])
+        d = re.sub('[A-z]', '', dates[0])
         return d
     else:
         print("Issue with date. No date found. (2)")

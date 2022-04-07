@@ -4,7 +4,7 @@
 # abodrug
 
 # This script inserts data into MitoMatcherDB.v2 using json files
-# Only json files for STIC data.
+# Only json files for STIC data, retrospective ThermoFisher data
 # json files and vcf files for mdenis and other data (? maybe)
 
 import sys, glob, os
@@ -212,11 +212,20 @@ def insert_sample(database, sample):
         id_sample_index = dekr_ids[sample['sample_id_in_lab']] # the function returns this
     else:
         try:
-            sqlinsert = ("INSERT INTO Sample (id_sample_in_lab, tissue, haplogroup, id_labo, sample_date, type, age_at_sampling) " \
-            "VALUES (" + ",".join(['"'+str(encrypted_id_for_database)+'"', '"'+sample['tissue']+'"', \
-            '"'+sample['haplogroup']+'"',str(sample['laboratory_of_sampling']), \
-            '"'+sample['date_of_sampling']+'"','"'+sample['type']+'"','"'+str(sample['age_at_sampling'])+'"']) \
-            +");")
+            sqlinsert =''
+            if args.type == 'retrofisher':
+                sqlinsert = ("INSERT INTO Sample (id_sample_in_lab, tissue, haplogroup, id_labo, sample_date, type, age_at_sampling) " \
+                "VALUES (" + ",".join(['"'+str(encrypted_id_for_database)+'"', '"'+sample['tissue']+'"', \
+                '"'+sample['haplogroup']+'"',str(sample['laboratory_of_sampling']), \
+                '"'+sample['date_of_sampling']+'"','"'+sample['type']+'"','"'+str(sample['age_at_sampling'])+'"']) \
+                +");")
+            elif args.type == 'stic':
+                 sqlinsert = ("INSERT INTO Sample (id_sample_in_lab, tissue, haplogroup, id_labo, sample_date, type) " \
+                 "VALUES (" + ",".join(['"'+str(encrypted_id_for_database)+'"', '"'+sample['tissue']+'"', \
+                 '"'+sample['haplogroup']+'"',str(sample['laboratory_of_sampling']), \
+                 '"'+sample['date_of_sampling']+'"','"'+sample['type']+'"']) \
+                 +");")
+            #print("SQLINSERT:", sqlinsert)
             utilitary.executeinsert(sqlinsert, cursor)
             database.commit()
             sqlselect = ("SELECT id_sample FROM Sample WHERE " + \

@@ -150,6 +150,7 @@ def build_retrofisher_jsons_in_a_run(s, run):
     '''
     sample_id = str(s['sample_id'])
     sample_file = glob.glob(run+"/**/*"+sample_id+"*.xls")
+    #
     if len(sample_file) == 1:
         pass
     elif len(sample_file) == 0:
@@ -166,7 +167,9 @@ def build_retrofisher_jsons_in_a_run(s, run):
     try:
         clinical_info = build_clinical_json(sample_id, args.type+":"+run)
     except:
+        e = sys.exc_info()
         print("Failed to build clinical json.")
+        print(e)
         exit()
     try:
         sample_info = build_sample_json(sample_id, args.type+":"+run)
@@ -306,7 +309,12 @@ def build_clinical_json(patid, source):
             print(inspect.stack()[0][3],": Too many samples found with sample id : ", sample_id)
             exit()
         file = file[0]
-        book = xlrd.open_workbook(file)
+        try:
+            book = xlrd.open_workbook(file)
+        except xlrd.XLRDError as e:
+            print("Could not open spreadsheet file: ", file)
+            print("Error message: ", e)
+            exit()
         sheet = book.sheet_by_index(0) # sheet containing patient info
         # name and surname is retrieved from the GLIMS file
         #nom = sheet.cell(rowx=0,colx=1).value
@@ -494,7 +502,9 @@ def build_sequencing_json(patid, source):
     # Parsing files
     if source == 'stic-surveyor':
         sequencer = 'surveyor'
-        analysis_date = '2012-4-11'
+        analysis_date = '2012-4-12' # surveyor is 2014-4-12, mitochip is 2012-4-11
+        # for database unicity's sake: an analysis is uniq(id_sample, analysis_date, id_tech)
+        # BUT in the script, i only check for uniq(id_sample, analysis_date)
         technique = 2
         file = config.STICSURVEYORxls
         book = xlrd.open_workbook(file)
@@ -534,7 +544,9 @@ def build_sequencing_json(patid, source):
 
     elif source == 'stic-mitochip':
         sequencer = 'mitochip'
-        analysis_date = '2012-4-11'
+        analysis_date = '2012-4-11' # surveyor is 2014-4-12, mitochip is 2012-4-11
+        # for database unicity's sake: an analysis is uniq(id_sample, analysis_date, id_tech)
+        # BUT in the script, i only check for uniq(id_sample, analysis_date)
         technique = 1
         laboratory_nr = int(patid[0:2])
         sampling_nr = int(patid[2:5])
@@ -583,7 +595,7 @@ def build_sequencing_json(patid, source):
                     catalog.append(variant)
     elif 'retrofisher' in source:
         # S5 XL or Proton
-        if "S5XL" in source:
+        if "S5" in source:
             technique = 4
         elif "Proton" in source:
             technique = 3
