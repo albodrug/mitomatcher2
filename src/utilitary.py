@@ -175,7 +175,6 @@ def check_if_json_in_database(database, samplejson, encrypted):
     # return status
     print("sample_id, analysis_date, present_in_db : ",sample_id_in_lab, analysis_date, status)
     return status
-
 #
 def get_id(file, source):
     ''' Parses files to get patient idientifiers
@@ -293,22 +292,25 @@ def decrypt(kryptid, encrypt):
 def areEqual(arr1, arr2):
     ''' From: https://www.geeksforgeeks.org/check-if-two-arrays-are-equal-or-not/
     '''
+    status = True
     n = len(arr1)
     m = len(arr2)
     if (n != m):
-        return False
-
-    # Sort both arrays
-    arr1.sort()
-    arr2.sort()
+        status=False
 
     # Linearly compare elements
-    for i in range(0, n - 1):
+    for i in range(0, n):
+        #print(arr1[i], arr2[i])
+        #print(status)
         if (arr1[i] != arr2[i]):
-            return False
+            if arr1[i] != "Haplogroup" and  arr2[i] != "Haplogroupe":
+                status=False
 
     # If all elements were same.
-    return True
+    #print(arr1)
+    #print(arr2)
+    #print(status)
+    return status
 #
 def get_ionthermo_id(file, source):
     ''' This function takes in an excel sheet and outputs ids.
@@ -328,29 +330,34 @@ def get_ionthermo_id(file, source):
             titles = [sheet.cell(rowx=1,colx=0).value,
                       sheet.cell(rowx=1,colx=1).value,
                       sheet.cell(rowx=1,colx=3).value,
-                      sheet.cell(rowx=0,colx=5).value,
-                      sheet.cell(rowx=0,colx=6).value]
+                      sheet.cell(rowx=0,colx=5).value]
+                      #sheet.cell(rowx=0,colx=6).value]
         else:
             titles = [sheet.cell(rowx=1,colx=0).value,
                       sheet.cell(rowx=1,colx=1).value,
                       sheet.cell(rowx=1,colx=3).value,
-                      sheet.cell(rowx=0,colx=5).value,
-                      sheet.cell(rowx=0,colx=6).value]
-        titles_as_expected = ['Barcode ID', 'Sample Name', 'Haplogroupe', 'Identité du patient', 'Type de prélèvement']
-        titles_as_expected2 = ['Barcode ID', 'Sample Name', 'Haplogroup', 'Identité du patient', 'Type de prélèvement']
-        if (areEqual(titles, titles_as_expected) or areEqual(titles, titles_as_expected2)):
+                      sheet.cell(rowx=0,colx=5).value]
+                      #sheet.cell(rowx=0,colx=6).value]
+        titles_as_expected = ['Barcode ID', 'Sample Name', 'Haplogroupe', 'Identité du patient'] #, 'Type de prélèvement']
+        if (areEqual(titles, titles_as_expected)):
             pass
         else:
-            print("Title of columns in the recap file not as expected.")
-            print(titles)
+            print(bcolors.FAIL +  "Title of columns in the recap file not as expected." + bcolors.ENDC)
             exit()
         for row_index in range(2, sheet.nrows):
             vcfbarcode_id = sheet.cell(rowx=row_index,colx=0).value
             sample_id = sheet.cell(rowx=row_index,colx=1).value
             haplogroup = sheet.cell(rowx=row_index,colx=3).value
             patient_id = sheet.cell(rowx=row_index,colx=5).value
-            tissue = sheet.cell(rowx=row_index,colx=6).value
-            if patient_id != '' and sample_id != '' and patient_id !='/':
+            #tissue = sheet.cell(rowx=row_index,colx=6).value
+            # series of characters that, if present in sample_id fields, needs to be excluded
+            to_exclude = ['/', 'TPOS', 'BLC', 'EXCL']
+            exclude = False
+            for el in to_exclude:
+                if el in str(sample_id):
+                    exclude = True
+            #
+            if patient_id != '' and sample_id != '' and patient_id !='/' and exclude == False:
                 if "F" in str(sample_id) or "M" in str(sample_id): # sometimes in the fiche récapitulative
                     # sample_id has the sex appended like - M or - F
                     sample_id = str(sample_id).split()[0]
@@ -384,14 +391,13 @@ def get_ionthermo_id(file, source):
                         sample_id = sample_id.split('-')[0]
                         sample_id = int(sample_id)
                     else:
-                        print("Issue with sample id: ", sample_id)
+                        print(bcolors.FAIL + "Issue with sample id: " +  bcolors.ENDC, sample_id)
                         exit()
 
                 info = { 'vcfbarcode_id': vcfbarcode_id,
                          'sample_id' : sample_id,
                          'haplogroup': haplogroup,
                          'patient_id': patient_id,
-                         'tissue': tissue
                         }
                 arrodict.append(info)
     return arrodict
@@ -581,27 +587,31 @@ def get_retrofisher_catalog(file):
     catalog = []
     book = xlrd.open_workbook(file)
     for sheet in book.sheets():
-        if sheet.name == 'NIOURK':
+        if sheet.name == 'NIOURK' or sheet.name == 'All variants':
             # check xls headers
             header_nb_calls = str(sheet.cell(rowx=1,colx=45).value)
             header_type = str(sheet.cell(rowx=2,colx=9).value)
             if header_nb_calls == "nb call" and header_type == "type":
                 pass
             else:
-                print("Issue with sample xls headers in NIOURK sheet:")
+                print(bcolors.FAIL + "Issue with sample xls headers in NIOURK sheet:" + bcolors.ENDC)
                 print(sample_id, header_nb_calls, header_type)
                 exit()
             for row_index in range(3, sheet.nrows):
                 # want at least 4 callers
                 try:
-                    nb_calls = int(sheet.cell(rowx=row_index,colx=45).value)
+                    nb_calls = sheet.cell(rowx=row_index,colx=45).value
+                    nc_calls = int(nb_calls)
+                    #print(row_index, nb_calls, sheet.cell(rowx=row_index,colx=1).value)
                 except:
-                    print("Issue with nb_calls format: ", nb_calls)
+                    print(bcolors.FAIL + "Issue with nb_calls format: " + bcolors.ENDC, nb_calls)
+                    exit()
                 # want to exclude frameshirt variants, that are very often artefacts
                 try:
                     type = sheet.cell(rowx=row_index,colx=9).value
                 except:
-                    print("Issue with type format: ", type)
+                    print(bcolors.FAIL + "Issue with type format: " + bcolors.ENDC, type)
+                    exit()
                 # These two criteria were advised by Valerie Desquirez, in order
                 # to retain a list of trustworthy
                 # with the pipeline at Angers Hospital
@@ -636,7 +646,7 @@ def get_date_recapfile(sheet):
         Output: date
     '''
     dates = []
-    for r in range(30,40): # row
+    for r in range(30,52): # row
         for c in range(2,4): # column
             for i in range(0,2): # first or second word within cell, in case initials are before date
                 date = ''
@@ -654,6 +664,7 @@ def get_date_recapfile(sheet):
         return d
     else:
         print("Issue with date. No date found. (2)")
+        #print(dates)
         exit()
 #
 def get_recap_file(run):
