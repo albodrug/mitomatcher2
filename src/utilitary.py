@@ -194,7 +194,7 @@ def get_id(file, source):
     elif (source == 'stic-surveyor'):
         book = xlrd.open_workbook(file)
         sheet = book.sheet_by_index(0)
-        for row_index in range(7, sheet.nrows):
+        for row_index in range(5, sheet.nrows):
             patid = str(sheet.cell(rowx=row_index,colx=0).value).replace(" ","")
             if patid not in identifiers:
                 identifiers.append(patid)
@@ -326,12 +326,20 @@ def get_ionthermo_id(file, source):
         # check that the xls headers and well ordered and that the script will
         # extract what is needed
         titles = []
-        if "MITO_2016" not in file and "MITO_2017" not in file:
-            titles = [sheet.cell(rowx=1,colx=0).value,
-                      sheet.cell(rowx=1,colx=1).value,
-                      sheet.cell(rowx=1,colx=3).value,
-                      sheet.cell(rowx=0,colx=5).value]
-                      #sheet.cell(rowx=0,colx=6).value]
+        runs_without_complete_recap = ['054', '055', '056', '057', '058', '059',
+                                       '053', '052', '051', '049', '048', '047',
+                                       '046', '045', '050']
+        status = False
+        for r in runs_without_complete_recap:
+            if r not in file:
+                pass
+            else:
+                status = True
+        if status:
+            titles = [sheet.cell(rowx=2,colx=0).value,
+                      sheet.cell(rowx=2,colx=1).value,
+                      sheet.cell(rowx=2,colx=2).value,
+                      sheet.cell(rowx=2,colx=4).value]
         else:
             titles = [sheet.cell(rowx=1,colx=0).value,
                       sheet.cell(rowx=1,colx=1).value,
@@ -339,67 +347,87 @@ def get_ionthermo_id(file, source):
                       sheet.cell(rowx=0,colx=5).value]
                       #sheet.cell(rowx=0,colx=6).value]
         titles_as_expected = ['Barcode ID', 'Sample Name', 'Haplogroupe', 'Identité du patient'] #, 'Type de prélèvement']
-        if (areEqual(titles, titles_as_expected)):
+        titles_as_expected2 = ['Patients', 'Maladie Recherchée', 'Résultats', 'Remarque particulière']
+        if (areEqual(titles, titles_as_expected) or areEqual(titles, titles_as_expected2)):
             pass
         else:
             print(bcolors.FAIL +  "Title of columns in the recap file not as expected." + bcolors.ENDC)
+            #print(titles)
             exit()
-        for row_index in range(2, sheet.nrows):
-            vcfbarcode_id = sheet.cell(rowx=row_index,colx=0).value
-            sample_id = sheet.cell(rowx=row_index,colx=1).value
-            haplogroup = sheet.cell(rowx=row_index,colx=3).value
-            patient_id = sheet.cell(rowx=row_index,colx=5).value
-            #tissue = sheet.cell(rowx=row_index,colx=6).value
-            # series of characters that, if present in sample_id fields, needs to be excluded
-            to_exclude = ['/', 'TPOS', 'BLC', 'EXCL']
-            exclude = False
-            for el in to_exclude:
-                if el in str(sample_id):
-                    exclude = True
-            #
-            if patient_id != '' and sample_id != '' and patient_id !='/' and exclude == False:
-                if "F" in str(sample_id) or "M" in str(sample_id): # sometimes in the fiche récapitulative
-                    # sample_id has the sex appended like - M or - F
-                    sample_id = str(sample_id).split()[0]
-                    sample_id = str(sample_id).split('-')[0]
-                try:
-                    sample_id = int(sample_id)
-                except:
-                    if "_REPASSE" in sample_id or '_REPLIG' in sample_id or 'RepliG' in sample_id:
-                        print("Warning: RERUN/REPLICA, ", sample_id, " in ", file)
-                        sample_id = sample_id.split('_')[0]
-                        sample_id = sample_id.split('-')[0]
+        #
+        if status:
+            maladies = ['SYND', 'LEBER', 'MITOT', 'LEBER']
+            # runs before 059 included
+            for row_index in range(4, sheet.nrows):
+                maladie = sheet.cell(rowx=row_index, colx=1).value
+                if str(maladie).upper() in maladies:
+                    sample_id = sheet.cell(rowx=row_index, colx=0).value
+                    try:
                         sample_id = int(sample_id)
-                    elif "LONG PCR" in sample_id:
-                        print("Warning: LONG PCR, ", sample_id, " in ", file)
-                        sample_id = sample_id.split('_')[0]
-                        sample_id = sample_id.split('-')[0]
-                        sample_id = int(sample_id)
-                    elif "_QIAGEN" in sample_id:
-                        print("Warning: QUIAGEN, ", sample_id, " in ", file)
-                        sample_id = sample_id.split('_')[0]
-                        sample_id = sample_id.split('-')[0]
-                        sample_id = int(sample_id)
-                    elif "_EZ1" in sample_id:
-                        print("Warning: EZ1, ", sample_id, " in ", file)
-                        sample_id = sample_id.split('_')[0]
-                        sample_id = sample_id.split('-')[0]
-                        sample_id = int(sample_id)
-                    elif "_HAMILTON" in sample_id:
-                        print("Warning: HAMILTON, ", sample_id, " in ", file)
-                        sample_id = sample_id.split('_')[0]
-                        sample_id = sample_id.split('-')[0]
-                        sample_id = int(sample_id)
-                    else:
+                    except:
                         print(bcolors.FAIL + "Issue with sample id: " +  bcolors.ENDC, sample_id)
                         exit()
+                    info = { 'sample_id' : sample_id }
+                    arrodict.append(info)
 
-                info = { 'vcfbarcode_id': vcfbarcode_id,
-                         'sample_id' : sample_id,
-                         'haplogroup': haplogroup,
-                         'patient_id': patient_id,
-                        }
-                arrodict.append(info)
+        else:
+            # runs after 059 excluded
+            for row_index in range(2, sheet.nrows):
+                vcfbarcode_id = sheet.cell(rowx=row_index,colx=0).value
+                sample_id = sheet.cell(rowx=row_index,colx=1).value
+                haplogroup = sheet.cell(rowx=row_index,colx=3).value
+                patient_id = sheet.cell(rowx=row_index,colx=5).value
+                #tissue = sheet.cell(rowx=row_index,colx=6).value
+                # series of characters that, if present in sample_id fields, needs to be excluded
+                to_exclude = ['/', 'TPOS', 'BLC', 'EXCL']
+                exclude = False
+                for el in to_exclude:
+                    if el in str(sample_id):
+                        exclude = True
+                #
+                if patient_id != '' and sample_id != '' and patient_id !='/' and exclude == False:
+                    if "F" in str(sample_id) or "M" in str(sample_id): # sometimes in the fiche récapitulative
+                        # sample_id has the sex appended like - M or - F
+                        sample_id = str(sample_id).split()[0]
+                        sample_id = str(sample_id).split('-')[0]
+                    try:
+                        sample_id = int(sample_id)
+                    except:
+                        if "_REPASSE" in sample_id or '_REPLIG' in sample_id or 'RepliG' in sample_id:
+                            print("Warning: RERUN/REPLICA, ", sample_id, " in ", file)
+                            sample_id = sample_id.split('_')[0]
+                            sample_id = sample_id.split('-')[0]
+                            sample_id = int(sample_id)
+                        elif "LONG PCR" in sample_id:
+                            print("Warning: LONG PCR, ", sample_id, " in ", file)
+                            sample_id = sample_id.split('_')[0]
+                            sample_id = sample_id.split('-')[0]
+                            sample_id = int(sample_id)
+                        elif "_QIAGEN" in sample_id:
+                            print("Warning: QUIAGEN, ", sample_id, " in ", file)
+                            sample_id = sample_id.split('_')[0]
+                            sample_id = sample_id.split('-')[0]
+                            sample_id = int(sample_id)
+                        elif "_EZ1" in sample_id:
+                            print("Warning: EZ1, ", sample_id, " in ", file)
+                            sample_id = sample_id.split('_')[0]
+                            sample_id = sample_id.split('-')[0]
+                            sample_id = int(sample_id)
+                        elif "_HAMILTON" in sample_id:
+                            print("Warning: HAMILTON, ", sample_id, " in ", file)
+                            sample_id = sample_id.split('_')[0]
+                            sample_id = sample_id.split('-')[0]
+                            sample_id = int(sample_id)
+                        else:
+                            print(bcolors.FAIL + "Issue with sample id: " +  bcolors.ENDC, sample_id)
+                            exit()
+
+                    info = { 'vcfbarcode_id': vcfbarcode_id,
+                             'sample_id' : sample_id,
+                             'haplogroup': haplogroup,
+                             'patient_id': patient_id,
+                            }
+                    arrodict.append(info)
     return arrodict
 #
 def translate_tissue(tissue, sample_id):
@@ -425,7 +453,8 @@ def translate_tissue(tissue, sample_id):
     'salive' : 'saliva',
     'biopsie foie' : 'liver biopsy',
     'liquide' : 'liquid',
-    'frottis buccal' : 'buccal smear'
+    'frottis buccal' : 'buccal smear',
+    'nerf' : 'nerve'
     }
     # typos and special fields
     if 'urine' in tissue:
@@ -587,15 +616,17 @@ def get_retrofisher_catalog(file):
     catalog = []
     book = xlrd.open_workbook(file)
     for sheet in book.sheets():
-        if sheet.name == 'NIOURK' or sheet.name == 'All variants':
+        if (sheet.name).lower() == 'niourk' or (sheet.name).lower() == 'all variants':
             # check xls headers
             header_nb_calls = str(sheet.cell(rowx=1,colx=45).value)
             header_type = str(sheet.cell(rowx=2,colx=9).value)
-            if header_nb_calls == "nb call" and header_type == "type":
+            header_pval = str(sheet.cell(rowx=2,colx=42).value)
+            header_strandbias = str(sheet.cell(rowx=1,colx=13).value)
+            if header_nb_calls == "nb call" and header_type == "type" and header_pval == 'pval' and "relative" in header_strandbias.lower():
                 pass
             else:
                 print(bcolors.FAIL + "Issue with sample xls headers in NIOURK sheet:" + bcolors.ENDC)
-                print(sample_id, header_nb_calls, header_type)
+                print(sample_id, header_nb_calls, header_type, header_pval, header_strandbias)
                 exit()
             for row_index in range(3, sheet.nrows):
                 # want at least 4 callers
@@ -612,21 +643,55 @@ def get_retrofisher_catalog(file):
                 except:
                     print(bcolors.FAIL + "Issue with type format: " + bcolors.ENDC, type)
                     exit()
+                try:
+                    pval = sheet.cell(rowx=row_index,colx=42).value
+                except:
+                    print(bcolors.FAIL + "Issue with pval format: " + bcolors.ENDC, pval)
+                    exit()
+                try:
+                    strandbias = sheet.cell(rowx=row_index,colx=13).value
+                except:
+                    print(bcolors.FAIL + "Issue with strandbias format: " + bcolors.ENDC, strandbias)
+                    exit()
+                try:
+                    AF = sheet.cell(rowx=row_index,colx=12).value # allele freq
+                except:
+                    print(bcolors.FAIL + "Issue with AF: " + bcolors.ENDC, AF)
+                    exit()
+                # extracting data
+                pos = int(sheet.cell(rowx=row_index,colx=1).value) # pos column
+                ref = sheet.cell(rowx=row_index,colx=4).value # ref column
+                alt = sheet.cell(rowx=row_index,colx=5).value # alt column
+                AF = float(AF)
+                heteroplasmy_status = 'HOM'
+                # The pipeline at the CHU d'Angers will rarely give Homoplasmic
+                # variants because of artefacts, this is why we consider allele
+                # frequencies above 95 to be homoplasmic
+                if AF>4 and AF < 96:
+                    heteroplasmy_status = 'HET'
                 # These two criteria were advised by Valerie Desquirez, in order
                 # to retain a list of trustworthy
                 # with the pipeline at Angers Hospital
-                if nb_calls > 3 and 'frameshift' not in type:
-                    pos = int(sheet.cell(rowx=row_index,colx=1).value) # pos column
-                    ref = sheet.cell(rowx=row_index,colx=4).value # ref column
-                    alt = sheet.cell(rowx=row_index,colx=5).value # alt column
-                    AF = float(sheet.cell(rowx=row_index,colx=12).value) # allele freq
-                    heteroplasmy_status = 'HOM'
-                    # The pipeline at the CHU d'Angers will rarely give Homoplasmic
-                    # variants because of artefacts, this is why we consider allele
-                    # frequencies above 95 to be homoplasmic
-                    if AF>4 and AF < 96:
-                        heteroplasmy_status = 'HET'
-
+                thres = { 'nb_calls'    : nb_calls,
+                          'type'        : type,
+                          'pval'        : pval,
+                          'strandbias'  : strandbias,
+                          'pos'         : pos,
+                          'ref'         : ref,
+                          'alt'         : alt,
+                          'AF'          : AF
+                        }
+                #print(thres)
+                thresholds = pass_thresholds(thres)
+                if thresholds == True:
+                    '''
+                    if len(ref)>1 or len(alt)>1:
+                        print(bcolors.FAIL + "yes indel", str(pval) + bcolors.ENDC, pos, ref, alt)
+                    else:
+                        print(bcolors.OKBLUE + "not indel", str(pval) + bcolors.ENDC, pos, ref, alt)
+                    '''
+                    #
+                    #if ((len(ref) != 1 or len(alt) != 1 or ref == '.') and pval < 4e-16) or (len(ref)<=1 and len(alt)<=1): # insertions or deletions
                     variant = {
                         'chr' : 'chrM',
                         'pos' : pos,
@@ -637,8 +702,89 @@ def get_retrofisher_catalog(file):
                         'depth' : '',
                         'quality' : ''
                     }
+                    #
                     catalog.append(variant)
+                    #else:
+                    #    print(bcolors.WARNING + "WARNING: Excluded variation. \t\t", str(pos), ref, alt, str(pval), bcolors.ENDC,)
+                        #print("position ", int(sheet.cell(rowx=row_index,colx=1).value), " in ", file)
+                        #exit()
+        elif (sheet.name).lower() == 'variant caller mtdna':
+            position = str(sheet.cell(rowx=0,colx=0).value)
+            reference = str(sheet.cell(rowx=0,colx=3).value)
+            alternative = str(sheet.cell(rowx=0,colx=4).value)
+            AF = str(sheet.cell(rowx=0,colx=5).value)
+            titles = [position, reference, alternative, AF]
+            titles_as_expected = ['Position', 'Ref', 'Variant', 'Var Freq']
+            if areEqual(titles, titles_as_expected):
+                for row_index in range(1, sheet.nrows):
+                    pos = sheet.cell(rowx=row_index,colx=0).value
+                    zyg = sheet.cell(rowx=row_index,colx=2).value
+                    ref = sheet.cell(rowx=row_index,colx=3).value
+                    alt = sheet.cell(rowx=row_index,colx=4).value
+                    af  = sheet.cell(rowx=row_index,colx=5).value
+                    if pos != "":
+                        try:
+                            pos = int(pos)
+                            af = float(af)
+                            zyg = zyg.upper()
+                            try:
+                                len(zyg) == 3
+                            except:
+                                print("Zygosity annotation is a word of more than 3 chars: ", zyg)
+                                exit()
+                            variant = {
+                                'chr' : 'chrM',
+                                'pos' : pos,
+                                'ref' : ref,
+                                'alt' : alt,
+                                'heteroplasmy_rate' : af,
+                                'heteroplasmy_status' : zyg,
+                                'depth' : '',
+                                'quality' : ''
+                            }
+                            catalog.append(variant)
+                        except:
+                            print("Issue while building catalog (RUN 55 and below).")
+                            exit()
     return catalog
+#
+def pass_thresholds(values):
+    ''' What is a valid variant among all Niourk output?
+    '''
+    verbose = False
+    # thresholds
+    thres = { 'nb_calls'    : 4,
+        'type'        : ['frameshift'],
+        'pval'        : 4e-16,
+        'pval-indels' : 1e-18,
+        'strandbias'  : [0.25, 0.75],
+    }
+    # at least 4 variant calls called the variant
+    if int(values['nb_calls']) <= thres['nb_calls']:
+        if verbose : print(bcolors.WARNING + "Variant rejected due to low nb of callers: \n" + bcolors.ENDC, values, "\n")
+        return False
+    # strans bias needs to be checked
+    if float(values['strandbias']) < thres['strandbias'][0] or float(values['strandbias']) > thres['strandbias'][1]:
+        if verbose : print(bcolors.WARNING + "Variant rejected due to SB: \n" + bcolors.ENDC, values, "\n")
+        return False
+    # p-value for all variants
+    if values['pval'] == '.':
+        return False
+    if float(values['pval']) > thres['pval']:
+        if verbose : print(bcolors.WARNING + "Variant rejected due to p-value: \n" + bcolors.ENDC, values, "\n")
+        return False
+    # type
+    if values['type'].lower() in thres['type']:
+        if verbose : print(bcolors.WARNING + "Variant rejected due to type: \n" + bcolors.ENDC, values, "\n")
+        return False
+    # p-value for indels specifically
+    if len(values['ref']) != 1 or len(values['alt']) != 1 or values['ref'] != '.':
+        if float(values['pval']) > thres['pval-indels']:
+            if verbose : print(bcolors.WARNING + "Variant rejected due to p-value (indels): \n" + bcolors.ENDC, values, "\n")
+            return False
+    #
+    if verbose : print(bcolors.OKBLUE + "Variant kept: \n"+ bcolors.ENDC, values, "\n")
+    return True
 #
 def get_date_recapfile(sheet):
     ''' Extract date from recap file of a Run (proton or S5)

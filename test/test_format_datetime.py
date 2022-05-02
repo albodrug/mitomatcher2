@@ -16,27 +16,50 @@ import utilitary
 import unittest
 
 class TestDateformat(unittest.TestCase):
+    #
     def setUp(self):
-        return 0
+        super(TestDateformat, self).setUp()
+        # odd are us, even are euro
+        self.datadate = [
+                        {'dstr' : '12/07/12',
+                         'ddate' : datetime.date(2012, 7, 12),
+                         'dstyle' : 'euro'},
+                        {'dstr' : '07/12/12',
+                         'ddate' : datetime.date(2012, 7, 12),
+                         'dstyle' : 'us'},
+                        {'dstr' : '02/07/12',
+                         'ddate' : datetime.date(2012, 7, 2),
+                         'dstyle' : 'euro'},
+                        {'dstr' : '07/02/12',
+                         'ddate' : datetime.date(2012, 7, 2),
+                         'dstyle' : 'us'}
+                         ]
     #
     def test_type(self):
         ''' Format is datetime.date
         '''
-        actual = type(utilitary.format_datetime(datestring="12/07/2012", sample_id=0, style="euro"))
-        expected = type(datetime.date(2012, 7, 12))
-        self.assertEqual(actual, expected)
+        for el in self.datadate:
+            actual = type(utilitary.format_datetime(datestring=el['dstr'], sample_id=0, style=el['dstyle']))
+            expected = type(el['ddate'])
+            self.assertEqual(actual, expected)
     #
     def test_style(self):
-        ''' Style is euro or us
+        ''' Style is euro or us, in datadate even is euro, uneven is us
         '''
-        actual_euro = utilitary.format_datetime(datestring="02/07/2012", sample_id=0, style="euro")
-        actual_us = utilitary.format_datetime(datestring="07/02/2012", sample_id=0, style="us")
-        expected = datetime.date(2012, 7, 2)
-        self.assertEqual(actual_euro, expected)
-        self.assertEqual(actual_us, expected)
+        for i in range(len(self.datadate))[::2]:
+            el_eu = self.datadate[i]
+            el_us = self.datadate[i+1]
+            actual_euro = utilitary.format_datetime(datestring=el_eu['dstr'], sample_id=0, style=el_eu['dstyle'])
+            actual_us = utilitary.format_datetime(datestring=el_us['dstr'], sample_id=0, style=el_us['dstyle'])
+            expected_euro = el_eu['ddate']
+            expected_us = el_us['ddate']
+            self.assertEqual(expected_euro, expected_us)
+            self.assertEqual(actual_euro, expected_us)
+            self.assertEqual(actual_us, expected_euro)
+
     #
     def test_inputs(self):
-        ''' Inputs can be different, wildly different, because extracted from manually filled xls
+        ''' Inputs can be different, because extracted from manually filled xls
         '''
         days = ["01", "1", "12", "17", "03", "3"]
         months = ["01", "1", "12", "9", "09"]
@@ -49,4 +72,5 @@ class TestDateformat(unittest.TestCase):
                     self.assertIs(type(actual), type(datetime.date(2012,1,1)))
     #
     def tearDown(self):
-        return 0
+        super(TestDateformat, self).tearDown()
+        self.datadate = []
